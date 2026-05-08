@@ -3005,7 +3005,7 @@ void Core_close(void) {
 
 ///////////////////////////////////////
 
-#define MENU_ITEM_COUNT 5
+#define MENU_ITEM_COUNT 6
 #define MENU_SLOT_COUNT 8
 
 enum {
@@ -3013,6 +3013,7 @@ enum {
 	ITEM_SAVE,
 	ITEM_LOAD,
 	ITEM_OPTS,
+	ITEM_SAVE_QUIT,
 	ITEM_QUIT,
 };
 
@@ -3050,11 +3051,12 @@ static struct {
 	.preview_exists = 0,
 	
 	.items = {
-		[ITEM_CONT] = "Continue",
-		[ITEM_SAVE] = "Save",
-		[ITEM_LOAD] = "Load",
-		[ITEM_OPTS] = "Options",
-		[ITEM_QUIT] = "Quit",
+		[ITEM_CONT]      = "Continue",
+		[ITEM_SAVE]      = "Save",
+		[ITEM_LOAD]      = "Load",
+		[ITEM_OPTS]      = "Options",
+		[ITEM_SAVE_QUIT] = "Save & Quit",
+		[ITEM_QUIT]      = "Quit",
 	}
 };
 
@@ -4381,6 +4383,12 @@ static void Menu_loop(void) {
 					}
 				}
 				break;
+				case ITEM_SAVE_QUIT:
+					Menu_saveState();
+					status = STATUS_QUIT;
+					show_menu = 0;
+					quit = 1;
+				break;
 				case ITEM_QUIT:
 					status = STATUS_QUIT;
 					show_menu = 0;
@@ -4429,8 +4437,15 @@ static void Menu_loop(void) {
 			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL }, 0, screen, 0);
 			GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OKAY", NULL }, 1, screen, 1);
 			
-			// list
-			oy = (((DEVICE_HEIGHT / FIXED_SCALE) - PADDING * 2) - (MENU_ITEM_COUNT * PILL_SIZE)) / 2;
+			// list — center items with equal margin above/below (PADDING/2 breathing room each side)
+			int list_top    = PADDING + PILL_SIZE + PADDING / 2;
+			int list_bottom = (DEVICE_HEIGHT / FIXED_SCALE) - PADDING - PILL_SIZE - PADDING / 2;
+			int usable_h    = list_bottom - list_top;
+			int item_stride = (MENU_ITEM_COUNT > 1)
+				? MIN(PILL_SIZE, (usable_h - PILL_SIZE) / (MENU_ITEM_COUNT - 1))
+				: PILL_SIZE;
+			int total_list_h = item_stride * (MENU_ITEM_COUNT - 1) + PILL_SIZE;
+			oy = list_top + (usable_h - total_list_h) / 2 - PADDING;
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
 				SDL_Color text_color = COLOR_WHITE;
@@ -4458,7 +4473,7 @@ static void Menu_loop(void) {
 					// pill
 					GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 						SCALE1(PADDING),
-						SCALE1(oy + PADDING + (i * PILL_SIZE)),
+						SCALE1(oy + PADDING + (i * item_stride)),
 						ow,
 						SCALE1(PILL_SIZE)
 					});
@@ -4469,7 +4484,7 @@ static void Menu_loop(void) {
 					text = TTF_RenderUTF8_Blended(font.large, item, COLOR_BLACK);
 					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 						SCALE1(2 + PADDING + BUTTON_PADDING),
-						SCALE1(1 + PADDING + oy + (i * PILL_SIZE) + 4)
+						SCALE1(1 + PADDING + oy + (i * item_stride) + 4)
 					});
 					SDL_FreeSurface(text);
 				}
@@ -4478,7 +4493,7 @@ static void Menu_loop(void) {
 				text = TTF_RenderUTF8_Blended(font.large, item, text_color);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 					SCALE1(PADDING + BUTTON_PADDING),
-					SCALE1(oy + PADDING + (i * PILL_SIZE) + 4)
+					SCALE1(oy + PADDING + (i * item_stride) + 4)
 				});
 				SDL_FreeSurface(text);
 			}
