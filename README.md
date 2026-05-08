@@ -1,3 +1,18 @@
+# MinUI — Miyoo My-355 Fork
+
+> **Unofficial fork** of [MinUI by shauninman](https://github.com/shauninman/MinUI), focused on the **Miyoo My-355** platform.  
+> Original project does not accept pull requests; changes here are maintained independently.
+
+## What's different in this fork
+
+| Change | Details |
+| -- | -- |
+| **Save & Quit** | New option in the in-game pause menu that saves state and returns to the launcher in one step |
+| **Menu layout fix** | Pause menu items are now evenly centered between the title bar and button hints with equal margins |
+| **ARM64 cross-compilation** | Added `immintrin.h` stub and Docker toolchain fixes for building on x86_64 hosts |
+
+---
+
 # MinUI
 
 MinUI is a focused, custom launcher and libretro frontend for [a variety of retro handhelds](#supported-devices).
@@ -32,7 +47,7 @@ MinUI is a focused, custom launcher and libretro frontend for [a variety of retr
   multiple devices from different
   manufacturers
 
-You can [grab the latest version here](https://github.com/shauninman/MinUI/releases).
+You can [grab the latest upstream version here](https://github.com/shauninman/MinUI/releases).
 
 > Devices with a physical power switch
 > use MENU to sleep and wake instead of
