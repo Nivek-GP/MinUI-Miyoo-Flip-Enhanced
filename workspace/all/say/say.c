@@ -35,7 +35,7 @@ int main(int argc , char* argv[]) {
 			GFX_clear(screen);
 			
 			GFX_blitMessage(font.large, msg, screen,&(SDL_Rect){0,0,screen->w,screen->h-SCALE1(PADDING + PILL_SIZE + PADDING)});
-			GFX_blitButtonGroup((char*[]){ "A","ACEPTAR", NULL }, 1, screen, 1);
+			GFX_blitButtonGroup((char*[]){ "A","OKAY", NULL }, 1, screen, 1);
 			
 			GFX_flip(screen);
 			dirty = 0;
