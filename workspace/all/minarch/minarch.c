@@ -12,6 +12,7 @@
 #include <errno.h>
 #include <zlib.h>
 #include <pthread.h>
+#include <math.h>
 
 #include "libretro.h"
 #include "defines.h"
@@ -4444,15 +4445,16 @@ static void Menu_loop(void) {
 			int item_stride = (MENU_ITEM_COUNT > 1)
 				? MIN(PILL_SIZE, (usable_h - PILL_SIZE) / (MENU_ITEM_COUNT - 1))
 				: PILL_SIZE;
-			int total_list_h = item_stride * (MENU_ITEM_COUNT - 1) + PILL_SIZE;
+			int total_list_h = item_stride * MENU_ITEM_COUNT;
 			oy = list_top + (usable_h - total_list_h) / 2 - PADDING;
+			int font_h; TTF_SizeUTF8(font.large, "A", NULL, &font_h);
 			for (int i=0; i<MENU_ITEM_COUNT; i++) {
 				char* item = menu.items[i];
 				SDL_Color text_color = COLOR_WHITE;
 				
 				if (i==selected) {
 					// disc change
-					if (menu.total_discs>1 && i==ITEM_CONT) {				
+					if (menu.total_discs>1 && i==ITEM_CONT) {
 						GFX_blitPill(ASSET_DARK_GRAY_PILL, screen, &(SDL_Rect){
 							SCALE1(PADDING),
 							SCALE1(oy + PADDING),
@@ -4466,17 +4468,25 @@ static void Menu_loop(void) {
 						});
 						SDL_FreeSurface(text);
 					}
-					
+
 					TTF_SizeUTF8(font.large, item, &ow, NULL);
 					ow += SCALE1(BUTTON_PADDING*2);
-					
-					// pill
-					GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
-						SCALE1(PADDING),
-						SCALE1(oy + PADDING + (i * item_stride)),
-						ow,
-						SCALE1(PILL_SIZE)
-					});
+
+					// pill — drawn per-scanline so it fits item_stride height with perfect rounded caps
+					{
+						int ph = SCALE1(item_stride);
+						int pr = ph / 2;
+						int px = SCALE1(PADDING);
+						int py = SCALE1(oy + PADDING + i * item_stride);
+						int pw = ow < ph ? ph : ow;
+						int fill_w = pw - ph;
+						Uint32 white = SDL_MapRGB(screen->format, 255, 255, 255);
+						for (int row = 0; row < ph; row++) {
+							float dy = fabsf((float)row - pr + 0.5f);
+							int dx = (int)sqrtf(fmaxf(0.0f, (float)(pr * pr) - dy * dy));
+							SDL_FillRect(screen, &(SDL_Rect){px + pr - dx, py + row, dx * 2 + fill_w, 1}, white);
+						}
+					}
 					text_color = COLOR_BLACK;
 				}
 				else {
@@ -4484,7 +4494,7 @@ static void Menu_loop(void) {
 					text = TTF_RenderUTF8_Blended(font.large, item, COLOR_BLACK);
 					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 						SCALE1(2 + PADDING + BUTTON_PADDING),
-						SCALE1(1 + PADDING + oy + (i * item_stride) + 4)
+						SCALE1(1 + PADDING + oy + i * item_stride) + (SCALE1(item_stride) - font_h) / 2
 					});
 					SDL_FreeSurface(text);
 				}
@@ -4493,7 +4503,7 @@ static void Menu_loop(void) {
 				text = TTF_RenderUTF8_Blended(font.large, item, text_color);
 				SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
 					SCALE1(PADDING + BUTTON_PADDING),
-					SCALE1(oy + PADDING + (i * item_stride) + 4)
+					SCALE1(oy + PADDING + i * item_stride) + (SCALE1(item_stride) - font_h) / 2
 				});
 				SDL_FreeSurface(text);
 			}
