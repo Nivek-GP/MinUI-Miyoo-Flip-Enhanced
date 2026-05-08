@@ -8,7 +8,6 @@
 | Change | Details |
 | -- | -- |
 | **Save & Quit** | New option in the in-game pause menu that saves state and returns to the launcher in one step |
-| **Menu layout fix** | Pause menu items are now evenly centered between the title bar and button hints with equal margins |
 | **ARM64 cross-compilation** | Added `immintrin.h` stub and Docker toolchain fixes for building on x86_64 hosts |
 
 ## Installation (already have MinUI?)
