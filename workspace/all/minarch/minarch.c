@@ -608,33 +608,33 @@ typedef struct OptionList {
 } OptionList;
 
 static char* onoff_labels[] = {
-	"Off",
-	"On",
+	"No",
+	"Sí",
 	NULL
 };
 static char* scaling_labels[] = {
-	"Native",
-	"Aspect",
-	"Fullscreen",
-	"Cropped",
+	"Nativo",
+	"Aspecto",
+	"Completa",
+	"Recortado",
 	NULL
 };
 static char* effect_labels[] = {
-	"None",
-	"Line",
-	"Grid",
+	"Ninguno",
+	"Líneas",
+	"Cuadrícula",
 	NULL
 };
 static char* sharpness_labels[] = {
-	"Sharp",
-	"Crisp",
-	"Soft",
+	"Nítido",
+	"Definido",
+	"Suave",
 	NULL
 };
 static char* tearing_labels[] = {
-	"Off",
-	"Lenient",
-	"Strict",
+	"No",
+	"Flexible",
+	"Estricto",
 	NULL
 };
 static char* max_ff_labels[] = {
@@ -786,15 +786,15 @@ static char* button_labels[] = {
 	NULL,
 };
 static char* overclock_labels[] = {
-	"Powersave",
+	"Ahorro",
 	"Normal",
-	"Performance",
+	"Rendimiento",
 	NULL,
 };
 
 // TODO: this should be provided by the core
 static char* gamepad_labels[] = {
-	"Standard",
+	"Estándar",
 	"DualShock",
 	NULL,
 };
@@ -812,10 +812,10 @@ enum {
 
 static inline char* getScreenScalingDesc(void) {
 	if (GFX_supportsOverscan()) {
-		return "Native uses integer scaling. Aspect uses core\nreported aspect ratio. Fullscreen has non-square\npixels. Cropped is integer scaled then cropped.";
+		return "Nativo usa escala entera. Aspecto usa la\nproporción reportada por el núcleo. Completa tiene\npíxeles no cuadrados. Recortado escala y recorta.";
 	}
 	else {
-		return "Native uses integer scaling.\nAspect uses core reported aspect ratio.\nFullscreen has non-square pixels.";
+		return "Nativo usa escala entera.\nAspecto usa la proporción reportada por el núcleo.\nCompleta tiene píxeles no cuadrados.";
 	}
 }
 static inline int getScreenScalingCount(void) {
@@ -839,8 +839,8 @@ static struct Config {
 		.count = FE_OPT_COUNT,
 		.options = (Option[]){
 			[FE_OPT_SCALING] = {
-				.key	= "minarch_screen_scaling", 
-				.name	= "Screen Scaling",
+				.key	= "minarch_screen_scaling",
+				.name	= "Escalado",
 				.desc	= NULL, // will call getScreenScalingDesc()
 				.default_value = 1,
 				.value = 1,
@@ -850,8 +850,8 @@ static struct Config {
 			},
 			[FE_OPT_EFFECT] = {
 				.key	= "minarch_screen_effect",
-				.name	= "Screen Effect",
-				.desc	= "Grid simulates an LCD grid.\nLine simulates CRT scanlines.\nEffects usually look best at native scaling.",
+				.name	= "Efecto",
+				.desc	= "Cuadrícula simula una pantalla LCD.\nLíneas simula scanlines de CRT.\nLos efectos se ven mejor con escalado nativo.",
 				.default_value = 0,
 				.value = 0,
 				.count = 3,
@@ -860,8 +860,8 @@ static struct Config {
 			},
 			[FE_OPT_SHARPNESS] = {
 				.key	= "minarch_screen_sharpness",
-				.name	= "Screen Sharpness",
-				.desc	= "Sharp uses nearest neighbor sampling.\nCrisp integer upscales before linear sampling.\nSoft uses linear sampling.",
+				.name	= "Nitidez",
+				.desc	= "Nítido usa muestreo por vecino más cercano.\nDefinido escala por enteros antes del muestreo lineal.\nSuave usa muestreo lineal.",
 				.default_value = 2,
 				.value = 2,
 				.count = 3,
@@ -870,8 +870,8 @@ static struct Config {
 			},
 			[FE_OPT_TEARING] = {
 				.key	= "minarch_prevent_tearing",
-				.name	= "Prevent Tearing",
-				.desc	= "Wait for vsync before drawing the next frame.\nLenient only waits when within frame budget.\nStrict always waits.",
+				.name	= "Evitar tearing",
+				.desc	= "Espera vsync antes del siguiente fotograma.\nFlexible espera solo si hay margen de tiempo.\nEstricto siempre espera.",
 				.default_value = VSYNC_LENIENT,
 				.value = VSYNC_LENIENT,
 				.count = 3,
@@ -880,8 +880,8 @@ static struct Config {
 			},
 			[FE_OPT_OVERCLOCK] = {
 				.key	= "minarch_cpu_speed",
-				.name	= "CPU Speed",
-				.desc	= "Over- or underclock the CPU to prioritize\npure performance or power savings.",
+				.name	= "Vel. de CPU",
+				.desc	= "Sube o baja la velocidad del CPU para\npriorizar rendimiento o ahorro de energía.",
 				.default_value = 1,
 				.value = 1,
 				.count = 3,
@@ -890,8 +890,8 @@ static struct Config {
 			},
 			[FE_OPT_THREAD] = {
 				.key	= "minarch_thread_video",
-				.name	= "Prioritize Audio",
-				.desc	= "Can eliminate crackle but\nmay cause dropped frames.\nOnly turn on if necessary.",
+				.name	= "Priorizar audio",
+				.desc	= "Puede eliminar el crujido de audio pero\npuede causar pérdida de fotogramas.\nActivar solo si es necesario.",
 				.default_value = 0,
 				.value = 0,
 				.count = 2,
@@ -900,8 +900,8 @@ static struct Config {
 			},
 			[FE_OPT_DEBUG] = {
 				.key	= "minarch_debug_hud",
-				.name	= "Debug HUD",
-				.desc	= "Show frames per second, cpu load,\nresolution, and scaler information.",
+				.name	= "HUD de debug",
+				.desc	= "Muestra FPS, carga del CPU,\nresolución e información del escalador.",
 				.default_value = 0,
 				.value = 0,
 				.count = 2,
@@ -910,8 +910,8 @@ static struct Config {
 			},
 			[FE_OPT_MAXFF] = {
 				.key	= "minarch_max_ff_speed",
-				.name	= "Max FF Speed",
-				.desc	= "Fast forward will not exceed the\nselected speed (but may be less\ndepending on game and emulator).",
+				.name	= "Vel. máx. FF",
+				.desc	= "El avance rápido no superará la\nvelocidad elegida (puede ser menor\nsegún el juego y el emulador).",
 				.default_value = 3, // 4x
 				.value = 3, // 4x
 				.count = 8,
@@ -929,14 +929,14 @@ static struct Config {
 	},
 	.controls = default_button_mapping,
 	.shortcuts = (ButtonMapping[]){
-		[SHORTCUT_SAVE_STATE]			= {"Save State",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_LOAD_STATE]			= {"Load State",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_RESET_GAME]			= {"Reset Game",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_SAVE_QUIT]			= {"Save & Quit",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_CYCLE_SCALE]			= {"Cycle Scaling",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_CYCLE_EFFECT]			= {"Cycle Effect",		-1, BTN_ID_NONE, 0},
-		[SHORTCUT_TOGGLE_FF]			= {"Toggle FF",			-1, BTN_ID_NONE, 0},
-		[SHORTCUT_HOLD_FF]				= {"Hold FF",			-1, BTN_ID_NONE, 0},
+		[SHORTCUT_SAVE_STATE]			= {"Guardar estado",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_LOAD_STATE]			= {"Cargar estado",			-1, BTN_ID_NONE, 0},
+		[SHORTCUT_RESET_GAME]			= {"Reiniciar juego",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_SAVE_QUIT]			= {"Guardar y salir",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_CYCLE_SCALE]			= {"Cambiar escalado",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_CYCLE_EFFECT]			= {"Cambiar efecto",		-1, BTN_ID_NONE, 0},
+		[SHORTCUT_TOGGLE_FF]			= {"Activar avance rápido",	-1, BTN_ID_NONE, 0},
+		[SHORTCUT_HOLD_FF]				= {"Mantener avance rápido",-1, BTN_ID_NONE, 0},
 		{NULL}
 	},
 };
@@ -3051,12 +3051,12 @@ static struct {
 	.preview_exists = 0,
 	
 	.items = {
-		[ITEM_CONT]      = "Continue",
-		[ITEM_SAVE]      = "Save",
-		[ITEM_LOAD]      = "Load",
-		[ITEM_OPTS]      = "Options",
-		[ITEM_SAVE_QUIT] = "Save & Quit",
-		[ITEM_QUIT]      = "Quit",
+		[ITEM_CONT]      = "Continuar",
+		[ITEM_SAVE]      = "Guardar",
+		[ITEM_LOAD]      = "Cargar",
+		[ITEM_OPTS]      = "Opciones",
+		[ITEM_SAVE_QUIT] = "Guardar y salir",
+		[ITEM_QUIT]      = "Salir",
 	}
 };
 
@@ -4435,7 +4435,7 @@ static void Menu_loop(void) {
 			
 			if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
 			else GFX_blitButtonGroup((char*[]){ BTN_SLEEP==BTN_POWER?"POWER":"MENU","SLEEP", NULL }, 0, screen, 0);
-			GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OKAY", NULL }, 1, screen, 1);
+			GFX_blitButtonGroup((char*[]){ "B","ATRÁS", "A","ACEPTAR", NULL }, 1, screen, 1);
 			
 			// list — center items with equal margin above/below (PADDING/2 breathing room each side)
 			int list_top    = PADDING + PILL_SIZE + PADDING / 2;
