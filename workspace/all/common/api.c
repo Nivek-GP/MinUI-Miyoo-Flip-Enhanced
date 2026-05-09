@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <samplerate.h>
 
 #include <msettings.h>
 
@@ -200,17 +201,20 @@ int GFX_hdmiChanged(void) {
 }
 
 #define FRAME_BUDGET 17 // 60fps
-static uint32_t frame_start = 0;
+static uint64_t frame_start = 0;
 void GFX_startFrame(void) {
-	frame_start = SDL_GetTicks();
+	frame_start = SDL_GetPerformanceCounter();
 }
 
 void GFX_flip(SDL_Surface* screen) {
-	int should_vsync = (gfx.vsync!=VSYNC_OFF && (gfx.vsync==VSYNC_STRICT || frame_start==0 || SDL_GetTicks()-frame_start<FRAME_BUDGET));
+	uint64_t freq = SDL_GetPerformanceFrequency();
+	uint64_t elapsed_us = (SDL_GetPerformanceCounter() - frame_start) * 1000000 / freq;
+	int should_vsync = (gfx.vsync!=VSYNC_OFF && (gfx.vsync==VSYNC_STRICT || frame_start==0 || elapsed_us < (uint64_t)FRAME_BUDGET * 1000));
 	PLAT_flip(screen, should_vsync);
 }
 void GFX_sync(void) {
-	uint32_t frame_duration = SDL_GetTicks() - frame_start;
+	uint64_t freq = SDL_GetPerformanceFrequency();
+	int frame_duration = (int)((SDL_GetPerformanceCounter() - frame_start) * 1000 / freq);
 	if (gfx.vsync!=VSYNC_OFF) {
 		// this limiting condition helps SuperFX chip games
 		if (gfx.vsync==VSYNC_STRICT || frame_start==0 || frame_duration<FRAME_BUDGET) { // only wait if we're under frame budget
@@ -911,209 +915,221 @@ void GFX_blitText(TTF_Font* font, char* str, int leading, SDL_Color color, SDL_S
 
 ///////////////////////////////
 
-// based on picoarch's audio 
-// implementation, rewritten 
-// to (try to) understand it 
-// better
+// libsamplerate-based audio with dynamic ratio adjustment.
+// The emulation loop never blocks waiting for audio — the resampling
+// ratio is adjusted ±0.5% in real time to keep the buffer at ~50% fill.
 
 #define MAX_SAMPLE_RATE 48000
-#define BATCH_SIZE 100
 #ifndef SAMPLES
-	#define SAMPLES 512 // default
+	#define SAMPLES 512
 #endif
 
 #define ms SDL_GetTicks
 
-typedef int (*SND_Resampler)(const SND_Frame frame);
+static pthread_mutex_t audio_mutex = PTHREAD_MUTEX_INITIALIZER;
+static SRC_STATE* src_state = NULL;
+static int src_reset_needed = 0;
+static SND_Frame* resample_buffer = NULL;
+static int resample_buffer_cap = 0;
+
+enum { SND_FF_ON_TIME, SND_FF_LATE, SND_FF_VERY_LATE };
+
 static struct SND_Context {
 	int initialized;
 	double frame_rate;
-	
+
 	int sample_rate_in;
 	int sample_rate_out;
-	
-	int buffer_seconds;     // current_audio_buffer_size
-	SND_Frame* buffer;		// buf
-	size_t frame_count; 	// buf_len
-	
-	int frame_in;     // buf_w
-	int frame_out;    // buf_r
-	int frame_filled; // max_buf_w
-	
-	SND_Resampler resample;
+
+	SND_Frame* buffer;
+	int frame_count;
+
+	int frame_in;
+	int frame_out;
 } snd = {0};
-static void SND_audioCallback(void* userdata, uint8_t* stream, int len) { // plat_sound_callback
-	
-	// return (void)memset(stream,0,len); // TODO: tmp, silent
-	
-	if (snd.frame_count==0) return;
-	
-	int16_t *out = (int16_t *)stream;
-	len /= (sizeof(int16_t) * 2);
-	// int full_len = len;
-	
-	// if (snd.frame_out!=snd.frame_in) LOG_info("%8i consuming samples (%i frames)\n", ms(), len);
-	
-	while (snd.frame_out!=snd.frame_in && len>0) {
+
+static void SND_audioCallback(void* userdata, uint8_t* stream, int len) {
+	if (snd.frame_count == 0) return;
+
+	int16_t* out = (int16_t*)stream;
+	len /= sizeof(int16_t) * 2;
+
+	pthread_mutex_lock(&audio_mutex);
+	while (snd.frame_out != snd.frame_in && len > 0) {
 		*out++ = snd.buffer[snd.frame_out].left;
 		*out++ = snd.buffer[snd.frame_out].right;
-		
-		snd.frame_filled = snd.frame_out;
-		
-		snd.frame_out += 1;
-		len -= 1;
-		
-		if (snd.frame_out>=snd.frame_count) snd.frame_out = 0;
+		snd.frame_out = (snd.frame_out + 1) % snd.frame_count;
+		len--;
 	}
-	
-	int zero = len>0 && len==SAMPLES;
-	if (zero) return (void)memset(out,0,len*(sizeof(int16_t) * 2));
-	// else if (len>=5) LOG_info("%8i BUFFER UNDERRUN (%i/%i frames)\n", ms(), len,full_len);
+	pthread_mutex_unlock(&audio_mutex);
 
-	int16_t *in = out-1;
-	while (len>0) {
-		*out++ = (void*)in>(void*)stream ? *--in : 0;
-		*out++ = (void*)in>(void*)stream ? *--in : 0;
-		len -= 1;
-	}
-}
-static void SND_resizeBuffer(void) { // plat_sound_resize_buffer
-	snd.frame_count = snd.buffer_seconds * snd.sample_rate_in / snd.frame_rate;
-	if (snd.frame_count==0) return;
-	
-	// LOG_info("frame_count: %i (%i * %i / %f)\n", snd.frame_count, snd.buffer_seconds, snd.sample_rate_in, snd.frame_rate);
-	// snd.frame_count *= 2; // no help
-	
-	SDL_LockAudio();
-	
-	int buffer_bytes = snd.frame_count * sizeof(SND_Frame);
-	snd.buffer = realloc(snd.buffer, buffer_bytes);
-	
-	memset(snd.buffer, 0, buffer_bytes);
-	
-	snd.frame_in = 0;
-	snd.frame_out = 0;
-	snd.frame_filled = snd.frame_count - 1;
-	
-	SDL_UnlockAudio();
-}
-static int SND_resampleNone(SND_Frame frame) { // audio_resample_passthrough
-	snd.buffer[snd.frame_in++] = frame;
-	if (snd.frame_in >= snd.frame_count) snd.frame_in = 0;
-	return 1;
-}
-static int SND_resampleNear(SND_Frame frame) { // audio_resample_nearest
-	static int diff = 0;
-	int consumed = 0;
-
-	if (diff < snd.sample_rate_out) {
-		snd.buffer[snd.frame_in++] = frame;
-		if (snd.frame_in >= snd.frame_count) snd.frame_in = 0;
-		diff += snd.sample_rate_in;
-	}
-
-	if (diff >= snd.sample_rate_out) {
-		consumed++;
-		diff -= snd.sample_rate_out;
-	}
-
-	return consumed;
-}
-static void SND_selectResampler(void) { // plat_sound_select_resampler
-	if (snd.sample_rate_in==snd.sample_rate_out) {
-		snd.resample =  SND_resampleNone;
-	}
-	else {
-		snd.resample = SND_resampleNear;
-	}
-}
-size_t SND_batchSamples(const SND_Frame* frames, size_t frame_count) { // plat_sound_write / plat_sound_write_resample
-	
-	// return frame_count; // TODO: tmp, silent
-	
-	if (snd.frame_count==0) return 0;
-	
-	// LOG_info("%8i batching samples (%i frames)\n", ms(), frame_count);
-	
-	SDL_LockAudio();
-
-	int consumed = 0;
-	int consumed_frames = 0;
-	while (frame_count > 0) {
-		int tries = 0;
-		int amount = MIN(BATCH_SIZE, frame_count);
-		
-		while (tries < 10 && snd.frame_in==snd.frame_filled) {
-			tries++;
-			SDL_UnlockAudio();
-			SDL_Delay(1);
-			SDL_LockAudio();
-		}
-		// if (tries) LOG_info("%8i waited %ims for buffer to get low...\n", ms(), tries);
-
-		while (amount && snd.frame_in != snd.frame_filled) {
-			consumed_frames = snd.resample(*frames);
-			
-			frames += consumed_frames;
-			amount -= consumed_frames;
-			frame_count -= consumed_frames;
-			consumed += consumed_frames;
-		}
-	}
-	SDL_UnlockAudio();
-	
-	return consumed;
+	if (len > 0) memset(out, 0, len * sizeof(int16_t) * 2);
 }
 
-void SND_init(double sample_rate, double frame_rate) { // plat_sound_init
+static int snd_used(void) {
+	int in  = snd.frame_in;
+	int out = snd.frame_out;
+	return (in >= out) ? (in - out) : (snd.frame_count - out + in);
+}
+
+static int resample_audio(const SND_Frame* input, int in_count,
+                          double ratio, SND_Frame** out_frames) {
+	int error;
+	double final_ratio = ((double)snd.sample_rate_out / snd.sample_rate_in) * ratio;
+	if (final_ratio < 0.5) final_ratio = 0.5;
+	if (final_ratio > 2.0) final_ratio = 2.0;
+
+	if (!src_state || src_reset_needed) {
+		if (src_state) src_delete(src_state);
+		src_state = src_new(SRC_SINC_FASTEST, 2, &error);
+		src_reset_needed = 0;
+	}
+
+	int max_out = (int)(in_count * final_ratio + 2);
+	if (max_out > resample_buffer_cap) {
+		free(resample_buffer);
+		resample_buffer = malloc(max_out * sizeof(SND_Frame));
+		resample_buffer_cap = max_out;
+	}
+
+	float* fin  = malloc(in_count * 2 * sizeof(float));
+	float* fout = malloc(max_out  * 2 * sizeof(float));
+
+	for (int i = 0; i < in_count; i++) {
+		fin[i*2]   = input[i].left  / 32768.0f;
+		fin[i*2+1] = input[i].right / 32768.0f;
+	}
+
+	SRC_DATA data = {
+		.data_in       = fin,
+		.data_out      = fout,
+		.input_frames  = in_count,
+		.output_frames = max_out,
+		.src_ratio     = final_ratio,
+		.end_of_input  = 0,
+	};
+	src_process(src_state, &data);
+
+	int out_count = data.output_frames_gen;
+	for (int i = 0; i < out_count; i++) {
+		float l = fmaxf(-1.f, fminf(1.f, fout[i*2]));
+		float r = fmaxf(-1.f, fminf(1.f, fout[i*2+1]));
+		resample_buffer[i].left  = (int16_t)(l * 32767.f);
+		resample_buffer[i].right = (int16_t)(r * 32767.f);
+	}
+
+	free(fin);
+	free(fout);
+	*out_frames = resample_buffer;
+	return out_count;
+}
+
+size_t SND_batchSamples(const SND_Frame* frames, size_t frame_count) {
+	if (snd.frame_count == 0) return frame_count;
+
+	// Adjust ratio to keep buffer near 50% full — no blocking ever
+	float occupancy = (float)snd_used() / snd.frame_count;
+	double ratio = 1.0;
+	if      (occupancy > 0.75) ratio = 1.005; // buffer llenándose: acelera pitch ligeramente
+	else if (occupancy < 0.25) ratio = 0.995; // buffer vaciándose: frena pitch ligeramente
+
+	SND_Frame* resampled;
+	int out_count = resample_audio(frames, (int)frame_count, ratio, &resampled);
+
+	pthread_mutex_lock(&audio_mutex);
+	for (int i = 0; i < out_count; i++) {
+		int next = (snd.frame_in + 1) % snd.frame_count;
+		if (next == snd.frame_out) break; // buffer lleno — descartar resto sin bloquear
+		snd.buffer[snd.frame_in] = resampled[i];
+		snd.frame_in = next;
+	}
+	pthread_mutex_unlock(&audio_mutex);
+
+	return frame_count; // siempre reportar todo consumido
+}
+
+size_t SND_batchSamples_fixed_rate(const SND_Frame* frames, size_t frame_count) {
+	if (snd.frame_count == 0) return frame_count;
+
+	static int ff_mode = SND_FF_ON_TIME;
+	float occupancy = (float)snd_used() / snd.frame_count;
+
+	switch (ff_mode) {
+		case SND_FF_ON_TIME:
+			if (occupancy > 0.65) ff_mode = SND_FF_LATE;
+			break;
+		case SND_FF_LATE:
+			if      (occupancy > 0.85) ff_mode = SND_FF_VERY_LATE;
+			else if (occupancy < 0.25) ff_mode = SND_FF_ON_TIME;
+			break;
+		case SND_FF_VERY_LATE:
+			if (occupancy < 0.50) ff_mode = SND_FF_LATE;
+			break;
+	}
+
+	if (ff_mode == SND_FF_VERY_LATE) return frame_count;
+
+	double ratio = (ff_mode == SND_FF_LATE) ? 0.995 : 1.0;
+
+	SND_Frame* resampled;
+	int out_count = resample_audio(frames, (int)frame_count, ratio, &resampled);
+
+	pthread_mutex_lock(&audio_mutex);
+	for (int i = 0; i < out_count; i++) {
+		int next = (snd.frame_in + 1) % snd.frame_count;
+		if (next == snd.frame_out) break;
+		snd.buffer[snd.frame_in] = resampled[i];
+		snd.frame_in = next;
+	}
+	pthread_mutex_unlock(&audio_mutex);
+
+	return frame_count;
+}
+
+void SND_init(double sample_rate, double frame_rate) {
 	LOG_info("SND_init\n");
-	
+
 	SDL_InitSubSystem(SDL_INIT_AUDIO);
-	
-#if defined(USE_SDL2)
-	LOG_info("Available audio drivers:\n");
-	for (int i=0; i<SDL_GetNumAudioDrivers(); i++) {
-		LOG_info("- %s\n", SDL_GetAudioDriver(i));
-	}
-	LOG_info("Current audio driver: %s\n", SDL_GetCurrentAudioDriver());
-#endif	
-	
+
 	memset(&snd, 0, sizeof(struct SND_Context));
 	snd.frame_rate = frame_rate;
 
-	SDL_AudioSpec spec_in;
-	SDL_AudioSpec spec_out;
-
-	spec_in.freq = PLAT_pickSampleRate(sample_rate, MAX_SAMPLE_RATE);
-	spec_in.format = AUDIO_S16;
+	SDL_AudioSpec spec_in, spec_out;
+	spec_in.freq     = PLAT_pickSampleRate(sample_rate, MAX_SAMPLE_RATE);
+	spec_in.format   = AUDIO_S16;
 	spec_in.channels = 2;
-	spec_in.samples = SAMPLES;
+	spec_in.samples  = SAMPLES;
 	spec_in.callback = SND_audioCallback;
-	
-	if (SDL_OpenAudio(&spec_in, &spec_out)<0) LOG_info("SDL_OpenAudio error: %s\n", SDL_GetError());
-	
-	snd.buffer_seconds = 5;
-	snd.sample_rate_in  = sample_rate;
+
+	if (SDL_OpenAudio(&spec_in, &spec_out) < 0)
+		LOG_info("SDL_OpenAudio error: %s\n", SDL_GetError());
+
+	snd.sample_rate_in  = (int)sample_rate;
 	snd.sample_rate_out = spec_out.freq;
-	
-	SND_selectResampler();
-	SND_resizeBuffer();
-	
+
+	// ~133ms de buffer a 60fps (8x headroom)
+	snd.frame_count = (int)((float)spec_out.freq / frame_rate) * 8;
+	if (snd.frame_count < 1024) snd.frame_count = 1024;
+
+	snd.buffer = malloc(snd.frame_count * sizeof(SND_Frame));
+	memset(snd.buffer, 0, snd.frame_count * sizeof(SND_Frame));
+
+	src_reset_needed = 1;
 	SDL_PauseAudio(0);
 
-	LOG_info("sample rate: %i (req) %i (rec) [samples %i]\n", snd.sample_rate_in, snd.sample_rate_out, SAMPLES);
+	LOG_info("sample rate: %i (req) %i (out) buffer: %i frames\n",
+	         snd.sample_rate_in, snd.sample_rate_out, snd.frame_count);
 	snd.initialized = 1;
 }
-void SND_quit(void) { // plat_sound_finish
+
+void SND_quit(void) {
 	if (!snd.initialized) return;
-	
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
-	
-	if (snd.buffer) {
-		free(snd.buffer);
-		snd.buffer = NULL;
-	}
+	if (snd.buffer)      { free(snd.buffer);      snd.buffer = NULL; }
+	if (src_state)       { src_delete(src_state);  src_state = NULL;  }
+	if (resample_buffer) { free(resample_buffer);  resample_buffer = NULL; resample_buffer_cap = 0; }
+	snd.initialized = 0;
 }
 
 ///////////////////////////////
