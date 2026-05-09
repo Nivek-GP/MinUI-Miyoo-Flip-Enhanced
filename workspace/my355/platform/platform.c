@@ -427,7 +427,15 @@ void PLAT_setEffectColor(int next_color) {
 	effect.next_color = next_color;
 }
 void PLAT_vsync(int remaining) {
-	if (remaining>0) SDL_Delay(remaining);
+	if (remaining <= 0) return;
+	uint64_t freq = SDL_GetPerformanceFrequency();
+	uint64_t deadline = SDL_GetPerformanceCounter() + (uint64_t)remaining * freq / 1000;
+	uint64_t busywait_threshold = deadline - 2 * freq / 1000;
+	if (SDL_GetPerformanceCounter() < busywait_threshold) {
+		uint64_t sleep_us = (busywait_threshold - SDL_GetPerformanceCounter()) * 1000000 / freq;
+		if (sleep_us > 0) usleep((useconds_t)sleep_us);
+	}
+	while (SDL_GetPerformanceCounter() < deadline) {}
 }
 
 scaler_t PLAT_getScaler(GFX_Renderer* renderer) {
