@@ -984,7 +984,7 @@ static int resample_audio(const SND_Frame* input, int in_count,
 
 	if (!src_state || src_reset_needed) {
 		if (src_state) src_delete(src_state);
-		src_state = src_new(SRC_SINC_FASTEST, 2, &error);
+		src_state = src_new(SRC_LINEAR, 2, &error);
 		src_reset_needed = 0;
 	}
 
@@ -1040,8 +1040,8 @@ size_t SND_batchSamples(const SND_Frame* frames, size_t frame_count) {
 	// So: if buffer draining (low) → ratio > 1 (write more); if filling (high) → ratio < 1 (write fewer).
 	float occupancy = (float)snd_used() / snd.frame_count;
 	double ratio = 1.0;
-	if      (occupancy > 0.75) ratio = 0.995; // buffer filling → write fewer samples
-	else if (occupancy < 0.25) ratio = 1.005; // buffer draining → write more samples
+	if      (occupancy > 0.75) ratio = 0.99; // buffer filling → write fewer samples
+	else if (occupancy < 0.25) ratio = 1.01; // buffer draining → write more samples
 
 	SND_Frame* resampled;
 	int out_count = resample_audio(frames, (int)frame_count, ratio, &resampled);
