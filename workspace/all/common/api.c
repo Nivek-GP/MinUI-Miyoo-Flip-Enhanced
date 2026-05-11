@@ -929,6 +929,7 @@ void GFX_blitText(TTF_Font* font, char* str, int leading, SDL_Color color, SDL_S
 static pthread_mutex_t audio_mutex = PTHREAD_MUTEX_INITIALIZER;
 static SRC_STATE* src_state = NULL;
 static int src_reset_needed = 0;
+static double snd_actual_fps = 0.0;
 static SND_Frame* resample_buffer = NULL;
 static int resample_buffer_cap = 0;
 static float* fin_buffer = NULL;
@@ -967,6 +968,10 @@ static void SND_audioCallback(void* userdata, uint8_t* stream, int len) {
 	pthread_mutex_unlock(&audio_mutex);
 
 	if (len > 0) memset(out, 0, len * sizeof(int16_t) * 2);
+}
+
+void SND_setFPS(double fps) {
+	snd_actual_fps = fps;
 }
 
 static int snd_used(void) {
@@ -1035,13 +1040,22 @@ static int resample_audio(const SND_Frame* input, int in_count,
 size_t SND_batchSamples(const SND_Frame* frames, size_t frame_count) {
 	if (snd.frame_count == 0) return frame_count;
 
-	// Adjust ratio to keep buffer near 50% full — no blocking ever.
-	// Higher ratio = more output samples written = buffer fills faster.
-	// So: if buffer draining (low) → ratio > 1 (write more); if filling (high) → ratio < 1 (write fewer).
+	// Primary ratio: compensate for actual FPS vs target FPS (like NextUI).
+	// If core runs slow (e.g. PS1 heavy scene at 57fps), fps_ratio > 1 → write more samples → buffer stays full.
+	double fps_ratio = 1.0;
+	if (snd_actual_fps > 10.0 && snd.frame_rate > 0.0) {
+		fps_ratio = snd.frame_rate / snd_actual_fps;
+		if (fps_ratio < 0.85) fps_ratio = 0.85;
+		if (fps_ratio > 1.15) fps_ratio = 1.15;
+	}
+
+	// Fine-tuning via occupancy on top of FPS ratio (±0.5%).
 	float occupancy = (float)snd_used() / snd.frame_count;
-	double ratio = 1.0;
-	if      (occupancy > 0.75) ratio = 0.99; // buffer filling → write fewer samples
-	else if (occupancy < 0.25) ratio = 1.01; // buffer draining → write more samples
+	double occ = 1.0;
+	if      (occupancy > 0.75) occ = 0.995;
+	else if (occupancy < 0.25) occ = 1.005;
+
+	double ratio = fps_ratio * occ;
 
 	SND_Frame* resampled;
 	int out_count = resample_audio(frames, (int)frame_count, ratio, &resampled);
