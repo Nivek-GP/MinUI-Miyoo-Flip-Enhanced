@@ -1121,6 +1121,7 @@ void SND_init(double sample_rate, double frame_rate) {
 
 	memset(&snd, 0, sizeof(struct SND_Context));
 	snd.frame_rate = frame_rate;
+	snd_actual_fps = frame_rate; // start at target so fps_ratio = 1.0 before measurement
 
 	SDL_AudioSpec spec_in, spec_out;
 	spec_in.freq     = PLAT_pickSampleRate(sample_rate, MAX_SAMPLE_RATE);
