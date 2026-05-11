@@ -2502,8 +2502,6 @@ static uint32_t fps_frame_deltas[FPS_ROLLING_WINDOW] = {0};
 static int      fps_delta_idx = 0;
 static uint32_t fps_prev_tick = 0;
 
-static SDL_Surface* fps_overlay = NULL;
-static double fps_overlay_last = -1.0;
 
 #ifdef USES_SWSCALER
 	static int fit = 1;
@@ -2851,7 +2849,6 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 	
 	GFX_blitRenderer(&renderer);
 
-	if (fps_overlay && screen) SDL_BlitSurface(fps_overlay, NULL, screen, &(SDL_Rect){4, 4, 0, 0});
 	if (!thread_video) GFX_flip(screen);
 	last_flip_time = SDL_GetTicks();
 }
@@ -4632,16 +4629,6 @@ finish:
 	return ticks;
 }
 
-static void update_fps_overlay(void) {
-	if (fps_double == fps_overlay_last) return;
-	fps_overlay_last = fps_double;
-	if (fps_overlay) { SDL_FreeSurface(fps_overlay); fps_overlay = NULL; }
-	char buf[32];
-	snprintf(buf, sizeof(buf), "%.0f/%.0f", fps_double, core.fps);
-	SDL_Color white = {255, 255, 255, 255};
-	fps_overlay = TTF_RenderText_Solid(font.small, buf, white);
-}
-
 static void trackFPS(void) {
 	cpu_ticks += 1;
 	static int last_use_ticks = 0;
@@ -4660,7 +4647,6 @@ static void trackFPS(void) {
 		fps_ticks = 0;
 		
 		// LOG_info("fps: %f cpu: %f\n", fps_double, cpu_double);
-		update_fps_overlay();
 	}
 
 	// Rolling FPS for audio ratio (16-frame window ≈ 267ms at 60fps)
@@ -4816,9 +4802,18 @@ int main(int argc , char* argv[]) {
 		GFX_startFrame();
 		
 		if (!thread_video) {
+			uint32_t cap_start = SDL_GetTicks();
 			core.run();
 			limitFF();
 			trackFPS();
+			// Ensure each core.run() takes at least 1000/core.fps ms.
+			// Needed for 30fps PS1 games: null frames skip GFX_flip (no vsync),
+			// causing two core.run() calls in one vsync interval → 2× speed.
+			if (!fast_forward) {
+				uint32_t target_ms = (uint32_t)(1000.0 / core.fps);
+				uint32_t elapsed = SDL_GetTicks() - cap_start;
+				if (elapsed < target_ms) SDL_Delay(target_ms - elapsed);
+			}
 		}
 
 		if (thread_video && !quit) {
@@ -4827,7 +4822,6 @@ int main(int argc , char* argv[]) {
 			
 			if (backbuffer) {
 				video_refresh_callback_main(backbuffer->pixels,backbuffer->w,backbuffer->h,backbuffer->pitch);
-				if (fps_overlay && screen) SDL_BlitSurface(fps_overlay, NULL, screen, &(SDL_Rect){4, 4, 0, 0});
 				GFX_flip(screen);
 			}
 			core_rq = (pthread_cond_t)PTHREAD_COND_INITIALIZER;
