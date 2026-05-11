@@ -2497,6 +2497,11 @@ static double cpu_double = 0;
 static double use_double = 0;
 static uint32_t sec_start = 0;
 
+#define FPS_ROLLING_WINDOW 16
+static uint32_t fps_frame_deltas[FPS_ROLLING_WINDOW] = {0};
+static int      fps_delta_idx = 0;
+static uint32_t fps_prev_tick = 0;
+
 #ifdef USES_SWSCALER
 	static int fit = 1;
 #else
@@ -4642,6 +4647,18 @@ static void trackFPS(void) {
 		
 		// LOG_info("fps: %f cpu: %f\n", fps_double, cpu_double);
 	}
+
+	// Rolling FPS for audio ratio (16-frame window ≈ 267ms at 60fps)
+	uint32_t now_t = SDL_GetTicks();
+	if (fps_prev_tick > 0 && now_t > fps_prev_tick) {
+		fps_frame_deltas[fps_delta_idx] = now_t - fps_prev_tick;
+		fps_delta_idx = (fps_delta_idx + 1) % FPS_ROLLING_WINDOW;
+		uint32_t delta_sum = 0;
+		for (int i = 0; i < FPS_ROLLING_WINDOW; i++) delta_sum += fps_frame_deltas[i];
+		if (delta_sum > 0)
+			SND_setFPS((FPS_ROLLING_WINDOW * 1000.0) / delta_sum);
+	}
+	fps_prev_tick = now_t;
 }
 
 static void limitFF(void) {
