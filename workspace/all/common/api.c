@@ -934,7 +934,8 @@ static SND_Frame* resample_buffer = NULL;
 static int resample_buffer_cap = 0;
 static float* fin_buffer = NULL;
 static float* fout_buffer = NULL;
-static int fin_buffer_cap = 0;
+static int fin_buffer_cap  = 0;
+static int fout_buffer_cap = 0;
 
 enum { SND_FF_ON_TIME, SND_FF_LATE, SND_FF_VERY_LATE };
 
@@ -1001,10 +1002,13 @@ static int resample_audio(const SND_Frame* input, int in_count,
 	}
 	if (in_count > fin_buffer_cap) {
 		free(fin_buffer);
-		free(fout_buffer);
-		fin_buffer  = malloc(in_count * 2 * sizeof(float));
-		fout_buffer = malloc(max_out  * 2 * sizeof(float));
+		fin_buffer     = malloc(in_count * 2 * sizeof(float));
 		fin_buffer_cap = in_count;
+	}
+	if (max_out > fout_buffer_cap) {
+		free(fout_buffer);
+		fout_buffer     = malloc(max_out * 2 * sizeof(float));
+		fout_buffer_cap = max_out;
 	}
 
 	float* fin  = fin_buffer;
@@ -1154,7 +1158,7 @@ void SND_quit(void) {
 	if (src_state)       { src_delete(src_state);  src_state = NULL;  }
 	if (resample_buffer) { free(resample_buffer);  resample_buffer = NULL; resample_buffer_cap = 0; }
 	if (fin_buffer)      { free(fin_buffer);       fin_buffer  = NULL; fin_buffer_cap = 0; }
-	if (fout_buffer)     { free(fout_buffer);      fout_buffer = NULL; }
+	if (fout_buffer)     { free(fout_buffer);      fout_buffer = NULL; fout_buffer_cap = 0; }
 	snd.initialized = 0;
 }
 
