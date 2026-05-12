@@ -211,7 +211,6 @@ void SND_setFPS(double fps);
 enum {
 	SND_RESAMPLE_FAST = 0,  // SRC_LINEAR
 	SND_RESAMPLE_GOOD = 1,  // SRC_SINC_FASTEST
-	SND_RESAMPLE_BEST = 2,  // SRC_SINC_MEDIUM_QUALITY
 };
 void SND_setResampleQuality(int quality); // SND_RESAMPLE_*
 

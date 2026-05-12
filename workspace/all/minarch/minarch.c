@@ -638,7 +638,7 @@ static char* tearing_labels[] = {
 	"Strict",
 	NULL
 };
-static char* resample_quality_labels[] = {"Fast","Good","Best",NULL};
+static char* resample_quality_labels[] = {"Fast","Good",NULL};
 static char* max_ff_labels[] = {
 	"None",
 	"2x",
@@ -927,7 +927,7 @@ static struct Config {
 				.desc          = "Audio resampling quality.\nHigher sounds better but uses more CPU.",
 				.default_value = 0,
 				.value         = 0,
-				.count         = 3,
+				.count         = 2,
 				.values        = resample_quality_labels,
 				.labels        = resample_quality_labels,
 			},
