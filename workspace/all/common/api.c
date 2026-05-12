@@ -931,7 +931,7 @@ static SRC_STATE* src_state = NULL;
 static int src_reset_needed = 0;
 static double snd_actual_fps = 0.0;
 static int snd_resample_quality = SND_RESAMPLE_FAST;
-static const int snd_resample_src_map[] = {SRC_LINEAR, SRC_SINC_FASTEST, SRC_SINC_MEDIUM_QUALITY};
+static const int snd_resample_src_map[] = {SRC_LINEAR, SRC_SINC_FASTEST};
 static SND_Frame* resample_buffer = NULL;
 static int resample_buffer_cap = 0;
 static float* fin_buffer = NULL;
@@ -978,7 +978,7 @@ void SND_setFPS(double fps) {
 }
 
 void SND_setResampleQuality(int quality) {
-	if (quality < SND_RESAMPLE_FAST || quality > SND_RESAMPLE_BEST) return;
+	if (quality < SND_RESAMPLE_FAST || quality > SND_RESAMPLE_GOOD) return;
 	snd_resample_quality = quality;
 	src_reset_needed = 1;
 }
