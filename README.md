@@ -8,6 +8,7 @@
 | Change | Details |
 | -- | -- |
 | **Save & Quit** | New option in the in-game pause menu that saves state and returns to the launcher in one step |
+| **Reduced input lag** | Replaced blocking audio throttle with libsamplerate dynamic resampling and a per-frame software cap. Tested on PS1, GBA, and SNES. |
 | **ARM64 cross-compilation** | Added `immintrin.h` stub and Docker toolchain fixes for building on x86_64 hosts |
 
 ## Installation (already have MinUI?)
