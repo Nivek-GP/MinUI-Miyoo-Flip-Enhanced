@@ -638,6 +638,7 @@ static char* tearing_labels[] = {
 	"Strict",
 	NULL
 };
+static char* resample_quality_labels[] = {"Fast","Good","Best",NULL};
 static char* max_ff_labels[] = {
 	"None",
 	"2x",
@@ -661,6 +662,7 @@ enum {
 	FE_OPT_THREAD,
 	FE_OPT_DEBUG,
 	FE_OPT_MAXFF,
+	FE_OPT_RESAMPLE_QUALITY,
 	FE_OPT_COUNT,
 };
 
@@ -919,6 +921,16 @@ static struct Config {
 				.values = max_ff_labels,
 				.labels = max_ff_labels,
 			},
+			[FE_OPT_RESAMPLE_QUALITY] = {
+				.key           = "minarch_resample_quality",
+				.name          = "Audio Quality",
+				.desc          = "Audio resampling quality.\nHigher sounds better but uses more CPU.",
+				.default_value = 0,
+				.value         = 0,
+				.count         = 3,
+				.values        = resample_quality_labels,
+				.labels        = resample_quality_labels,
+			},
 			[FE_OPT_COUNT] = {NULL}
 		}
 	},
@@ -1016,6 +1028,10 @@ static void Config_syncFrontend(char* key, int value) {
 	else if (exactMatch(key,config.frontend.options[FE_OPT_MAXFF].key)) {
 		max_ff_speed = value;
 		i = FE_OPT_MAXFF;
+	}
+	else if (exactMatch(key,config.frontend.options[FE_OPT_RESAMPLE_QUALITY].key)) {
+		SND_setResampleQuality(value);
+		i = FE_OPT_RESAMPLE_QUALITY;
 	}
 	if (i==-1) return;
 	Option* option = &config.frontend.options[i];

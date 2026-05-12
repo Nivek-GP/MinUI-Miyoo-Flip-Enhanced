@@ -930,6 +930,8 @@ static pthread_mutex_t audio_mutex = PTHREAD_MUTEX_INITIALIZER;
 static SRC_STATE* src_state = NULL;
 static int src_reset_needed = 0;
 static double snd_actual_fps = 0.0;
+static int snd_resample_quality = SND_RESAMPLE_FAST;
+static const int snd_resample_src_map[] = {SRC_LINEAR, SRC_SINC_FASTEST, SRC_SINC_MEDIUM_QUALITY};
 static SND_Frame* resample_buffer = NULL;
 static int resample_buffer_cap = 0;
 static float* fin_buffer = NULL;
@@ -975,6 +977,12 @@ void SND_setFPS(double fps) {
 	snd_actual_fps = fps;
 }
 
+void SND_setResampleQuality(int quality) {
+	if (quality < SND_RESAMPLE_FAST || quality > SND_RESAMPLE_BEST) return;
+	snd_resample_quality = quality;
+	src_reset_needed = 1;
+}
+
 static int snd_used(void) {
 	int in  = snd.frame_in;
 	int out = snd.frame_out;
@@ -990,7 +998,7 @@ static int resample_audio(const SND_Frame* input, int in_count,
 
 	if (!src_state || src_reset_needed) {
 		if (src_state) src_delete(src_state);
-		src_state = src_new(SRC_LINEAR, 2, &error);
+		src_state = src_new(snd_resample_src_map[snd_resample_quality], 2, &error);
 		src_reset_needed = 0;
 	}
 
