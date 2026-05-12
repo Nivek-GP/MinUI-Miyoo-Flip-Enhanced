@@ -11,6 +11,7 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | -- | -- |
 | **Reduced input lag** | Audio no longer throttles the emulator. Uses dynamic resampling (libsamplerate) to keep audio in sync without blocking the core. Controls feel noticeably more responsive on PS1, GBA, and SNES. |
 | **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
+| **Audio Quality** | Per-emulator resampling quality setting (Fast / Good / Best). Lets you trade CPU usage for audio fidelity on a per-system basis. |
 
 ## Installation (already have MinUI?)
 
