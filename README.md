@@ -1,4 +1,4 @@
-# MinUI — Miyoo Flip Fork
+# MinUI — Miyoo Flip -enhanced
 
 > **Unofficial fork** of [MinUI by shauninman](https://github.com/shauninman/MinUI), focused on the **Miyoo Flip** (platform: `my355`).  
 > Original project does not accept pull requests; changes here are maintained independently.
