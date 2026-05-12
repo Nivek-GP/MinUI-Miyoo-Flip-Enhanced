@@ -3,6 +3,8 @@
 > **Unofficial fork** of [MinUI by shauninman](https://github.com/shauninman/MinUI) for the **Miyoo Flip** (platform: `my355`).  
 > The original project does not accept pull requests; improvements here are maintained independently.
 
+This project was born out of love for the Miyoo Flip — a console that deserves the best possible experience. Every improvement here is driven by the desire to make it feel just a little more right.
+
 ## Improvements
 
 | Feature | Description |
