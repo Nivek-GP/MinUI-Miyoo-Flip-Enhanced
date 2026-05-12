@@ -1,23 +1,22 @@
-# MinUI — Miyoo Flip -enhanced
+# MinUI — Miyoo Flip Enhanced
 
-> **Unofficial fork** of [MinUI by shauninman](https://github.com/shauninman/MinUI), focused on the **Miyoo Flip** (platform: `my355`).  
-> Original project does not accept pull requests; changes here are maintained independently.
+> **Unofficial fork** of [MinUI by shauninman](https://github.com/shauninman/MinUI) for the **Miyoo Flip** (platform: `my355`).  
+> The original project does not accept pull requests; improvements here are maintained independently.
 
-## What's different in this fork
+## Improvements
 
-| Change | Details |
+| Feature | Description |
 | -- | -- |
-| **Save & Quit** | New option in the in-game pause menu that saves state and returns to the launcher in one step |
-| **Reduced input lag** | Replaced blocking audio throttle with libsamplerate dynamic resampling and a per-frame software cap. Tested on PS1, GBA, and SNES. |
-| **ARM64 cross-compilation** | Added `immintrin.h` stub and Docker toolchain fixes for building on x86_64 hosts |
+| **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
+| **Reduced input lag** | Audio no longer throttles the emulator. Uses dynamic resampling (libsamplerate) to keep audio in sync without blocking the core. Controls feel noticeably more responsive on PS1, GBA, and SNES. |
 
 ## Installation (already have MinUI?)
 
-If you already have MinUI installed on your Miyoo My-355, you only need to replace one file — no full reinstall required.
+If you already have MinUI installed on your Miyoo Flip, you only need to replace one file — no full reinstall required.
 
 ### Step 1 — Download the binary
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-My355/releases) and download `minarch.elf`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Fork/releases) and download `minarch.elf`.
 
 ### Step 2 — Locate the file on your SD card
 
@@ -40,6 +39,12 @@ Insert your SD card into your PC. Navigate to:
 Open any game and press **MENU** to open the pause menu. You should now see **Save & Quit** between Options and Quit.
 
 To revert, delete the new file and rename `minarch.elf.bak` back to `minarch.elf`.
+
+---
+
+## Building from source
+
+The toolchain uses Docker for ARM64 cross-compilation on x86_64 hosts. See `toolchains/my355-toolchain/Dockerfile` for the build environment. The key dependency is libsamplerate 0.2.2, built as a static ARM64 library inside the container.
 
 ---
 
