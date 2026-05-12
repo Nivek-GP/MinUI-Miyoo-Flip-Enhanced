@@ -16,7 +16,7 @@ If you already have MinUI installed on your Miyoo Flip, you only need to replace
 
 ### Step 1 — Download the binary
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Fork/releases) and download `minarch.elf`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minarch.elf`.
 
 ### Step 2 — Locate the file on your SD card
 
