@@ -103,7 +103,10 @@ static struct Core {
 	unsigned (*get_region)(void);
 	void *(*get_memory_data)(unsigned id);
 	size_t (*get_memory_size)(unsigned id);
-	
+
+	void (*cheat_reset)(void);
+	void (*cheat_set)(unsigned index, bool enabled, const char *code);
+
 	// retro_audio_buffer_status_callback_t audio_buffer_status;
 } core;
 
@@ -194,6 +197,109 @@ static struct Game {
 	size_t size;
 	int is_open;
 } game;
+
+///////////////////////////////////////
+// Cheats
+
+typedef struct {
+	char* desc;
+	char* code;
+	int   enabled;
+} Cheat;
+
+static struct {
+	Cheat* cheats;
+	int    count;
+} cheatcodes;
+
+static char cheat_file_path[MAX_PATH] = {0};
+
+static int Cheats_getPath(char* out) {
+	// Candidate 1: with ROM extension (e.g. "Crash Bandicoot 2.bin.cht")
+	char path1[MAX_PATH];
+	sprintf(path1, SDCARD_PATH "/Cheats/%s/%s.cht", core.tag, game.name);
+	if (access(path1, F_OK) == 0) { strcpy(out, path1); return 1; }
+
+	// Candidate 2: without extension (e.g. "Crash Bandicoot 2.cht")
+	char name_no_ext[MAX_PATH];
+	strcpy(name_no_ext, game.name);
+	char* dot = strrchr(name_no_ext, '.');
+	if (dot) *dot = '\0';
+	sprintf(out, SDCARD_PATH "/Cheats/%s/%s.cht", core.tag, name_no_ext);
+	return (access(out, F_OK) == 0);
+}
+
+static void Cheats_load(void) {
+	cheatcodes.cheats = NULL;
+	cheatcodes.count  = 0;
+	cheat_file_path[0] = '\0';
+
+	char path[MAX_PATH];
+	if (!Cheats_getPath(path)) return;
+	strcpy(cheat_file_path, path);
+
+	FILE* f = fopen(path, "r");
+	if (!f) return;
+
+	char line[512];
+	int total = 0;
+	while (fgets(line, sizeof(line), f)) {
+		if (sscanf(line, "cheats = %d", &total) == 1) break;
+	}
+	if (total <= 0) { fclose(f); return; }
+
+	cheatcodes.cheats = calloc(total, sizeof(Cheat));
+	if (!cheatcodes.cheats) { fclose(f); return; }
+	cheatcodes.count = total;
+
+	rewind(f);
+	int idx; char val[256];
+	while (fgets(line, sizeof(line), f)) {
+		if (sscanf(line, "cheat%d_desc = \"%255[^\"]\"", &idx, val) == 2 && idx < total)
+			cheatcodes.cheats[idx].desc = strdup(val);
+		else if (sscanf(line, "cheat%d_enable = %255s", &idx, val) == 2 && idx < total)
+			cheatcodes.cheats[idx].enabled = (strcmp(val, "true") == 0);
+		else if (sscanf(line, "cheat%d_code = \"%255[^\"]\"", &idx, val) == 2 && idx < total)
+			cheatcodes.cheats[idx].code = strdup(val);
+	}
+	fclose(f);
+}
+
+static void Cheats_free(void) {
+	for (int i = 0; i < cheatcodes.count; i++) {
+		free(cheatcodes.cheats[i].desc);
+		free(cheatcodes.cheats[i].code);
+	}
+	free(cheatcodes.cheats);
+	cheatcodes.cheats = NULL;
+	cheatcodes.count  = 0;
+	cheat_file_path[0] = '\0';
+}
+
+static void Cheats_apply(void) {
+	if (!core.cheat_reset || !core.cheat_set || !cheatcodes.cheats) return;
+	core.cheat_reset();
+	for (int i = 0; i < cheatcodes.count; i++) {
+		if (cheatcodes.cheats[i].enabled)
+			core.cheat_set(i, true, cheatcodes.cheats[i].code);
+	}
+}
+
+static void Cheats_save(void) {
+	if (cheatcodes.count == 0 || cheat_file_path[0] == '\0') return;
+	FILE* f = fopen(cheat_file_path, "w");
+	if (!f) return;
+	fprintf(f, "cheats = %d\n", cheatcodes.count);
+	for (int i = 0; i < cheatcodes.count; i++) {
+		fprintf(f, "\ncheat%d_desc = \"%s\"\n", i, cheatcodes.cheats[i].desc ? cheatcodes.cheats[i].desc : "");
+		fprintf(f, "cheat%d_enable = %s\n", i, cheatcodes.cheats[i].enabled ? "true" : "false");
+		fprintf(f, "cheat%d_code = \"%s\"\n", i, cheatcodes.cheats[i].code ? cheatcodes.cheats[i].code : "");
+	}
+	fclose(f);
+}
+
+///////////////////////////////////////
+
 static void Game_open(char* path) {
 	LOG_info("Game_open\n");
 	memset(&game, 0, sizeof(game));
@@ -2935,6 +3041,8 @@ void Core_open(const char* core_path, const char* tag_name) {
 	core.get_region = dlsym(core.handle, "retro_get_region");
 	core.get_memory_data = dlsym(core.handle, "retro_get_memory_data");
 	core.get_memory_size = dlsym(core.handle, "retro_get_memory_size");
+	core.cheat_reset = dlsym(core.handle, "retro_cheat_reset");
+	core.cheat_set   = dlsym(core.handle, "retro_cheat_set");
 	
 	void (*set_environment_callback)(retro_environment_t);
 	void (*set_video_refresh_callback)(retro_video_refresh_t);
@@ -2992,7 +3100,10 @@ void Core_load(void) {
 	LOG_info("game path: %s (%i)\n", game_info.path, game.size);
 	
 	core.load_game(&game_info);
-	
+
+	Cheats_load();
+	Cheats_apply();
+
 	SRAM_read();
 	RTC_read();
 	
@@ -3022,6 +3133,7 @@ void Core_quit(void) {
 		core.unload_game();
 		core.deinit();
 		core.initialized = 0;
+		Cheats_free();
 	}
 }
 void Core_close(void) {
@@ -3590,22 +3702,62 @@ static int OptionQuicksave_onConfirm(MenuList* list, int i) {
 	PWR_powerOff();
 }
 
+static char* cheat_toggle_values[] = {"Off", "On", NULL};
+static MenuItem* cheat_items = NULL;
+
+static int OptionCheats_changed(MenuList* list, int i) {
+	cheatcodes.cheats[i].enabled = list->items[i].value;
+	Cheats_apply();
+	return MENU_CALLBACK_NOP;
+}
+
+static MenuList cheats_menu_list = {
+	.type      = MENU_VAR,
+	.on_change = OptionCheats_changed,
+	.items     = NULL,
+};
+
+static int OptionCheats_openMenu(MenuList* list, int i) {
+	if (cheatcodes.count == 0) {
+		char msg[MAX_PATH + 128];
+		snprintf(msg, sizeof(msg),
+			"No cheat file found.\n\nPlace a .cht file in:\n/Cheats/%s/", core.tag);
+		char* pairs[] = {"B","Back",NULL};
+		Menu_message(msg, pairs);
+		return MENU_CALLBACK_NOP;
+	}
+
+	cheat_items = calloc(cheatcodes.count + 1, sizeof(MenuItem));
+	for (int j = 0; j < cheatcodes.count; j++) {
+		cheat_items[j].name   = cheatcodes.cheats[j].desc;
+		cheat_items[j].values = cheat_toggle_values;
+		cheat_items[j].value  = cheatcodes.cheats[j].enabled;
+	}
+	cheat_items[cheatcodes.count] = (MenuItem){NULL};
+	cheats_menu_list.items = cheat_items;
+	Menu_options(&cheats_menu_list);
+	Cheats_save();
+	free(cheat_items);
+	cheat_items = NULL;
+	return MENU_CALLBACK_NOP;
+}
+
 static MenuList options_menu = {
 	.type = MENU_LIST,
 	.items = (MenuItem[]) {
 		{"Frontend", "MinUI (" BUILD_DATE " " BUILD_HASH ")",.on_confirm=OptionFrontend_openMenu},
 		{"Emulator",.on_confirm=OptionEmulator_openMenu},
 		{"Controls",.on_confirm=OptionControls_openMenu},
-		{"Shortcuts",.on_confirm=OptionShortcuts_openMenu}, 
+		{"Shortcuts",.on_confirm=OptionShortcuts_openMenu},
+		{"Cheats",.on_confirm=OptionCheats_openMenu},
 		{"Save Changes",.on_confirm=OptionSaveChanges_openMenu},
-		{NULL},
 		{NULL},
 		{NULL},
 	}
 };
 
 static void OptionSaveChanges_updateDesc(void) {
-	options_menu.items[4].desc = getSaveDesc();
+	options_menu.items[5].desc = getSaveDesc();
 }
 
 #define OPTION_PADDING 8
@@ -4380,6 +4532,7 @@ static void Menu_loop(void) {
 				break;
 				case ITEM_LOAD: {
 					Menu_loadState();
+					Cheats_apply();
 					status = STATUS_LOAD;
 					show_menu = 0;
 				}
