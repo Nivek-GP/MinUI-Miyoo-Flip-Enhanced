@@ -206,13 +206,6 @@ typedef struct SND_Frame {
 } SND_Frame;
 
 void SND_init(double sample_rate, double frame_rate);
-void SND_setFPS(double fps);
-
-enum {
-	SND_RESAMPLE_FAST = 0,  // SRC_LINEAR
-	SND_RESAMPLE_GOOD = 1,  // SRC_SINC_FASTEST
-};
-void SND_setResampleQuality(int quality); // SND_RESAMPLE_*
 
 size_t SND_batchSamples(const SND_Frame* frames, size_t frame_count);
 size_t SND_batchSamples_fixed_rate(const SND_Frame* frames, size_t frame_count);
