@@ -744,7 +744,6 @@ static char* tearing_labels[] = {
 	"Strict",
 	NULL
 };
-static char* resample_quality_labels[] = {"Fast","Good",NULL};
 static char* max_ff_labels[] = {
 	"None",
 	"2x",
@@ -768,7 +767,6 @@ enum {
 	FE_OPT_THREAD,
 	FE_OPT_DEBUG,
 	FE_OPT_MAXFF,
-	FE_OPT_RESAMPLE_QUALITY,
 	FE_OPT_COUNT,
 };
 
@@ -1027,16 +1025,6 @@ static struct Config {
 				.values = max_ff_labels,
 				.labels = max_ff_labels,
 			},
-			[FE_OPT_RESAMPLE_QUALITY] = {
-				.key           = "minarch_resample_quality",
-				.name          = "Audio Quality",
-				.desc          = "Audio resampling quality.\nHigher sounds better but uses more CPU.",
-				.default_value = 0,
-				.value         = 0,
-				.count         = 2,
-				.values        = resample_quality_labels,
-				.labels        = resample_quality_labels,
-			},
 			[FE_OPT_COUNT] = {NULL}
 		}
 	},
@@ -1134,10 +1122,6 @@ static void Config_syncFrontend(char* key, int value) {
 	else if (exactMatch(key,config.frontend.options[FE_OPT_MAXFF].key)) {
 		max_ff_speed = value;
 		i = FE_OPT_MAXFF;
-	}
-	else if (exactMatch(key,config.frontend.options[FE_OPT_RESAMPLE_QUALITY].key)) {
-		SND_setResampleQuality(value);
-		i = FE_OPT_RESAMPLE_QUALITY;
 	}
 	if (i==-1) return;
 	Option* option = &config.frontend.options[i];
@@ -2618,12 +2602,6 @@ static double fps_double = 0;
 static double cpu_double = 0;
 static double use_double = 0;
 static uint32_t sec_start = 0;
-
-#define FPS_ROLLING_WINDOW 16
-static uint32_t fps_frame_deltas[FPS_ROLLING_WINDOW] = {0};
-static int      fps_delta_idx = 0;
-static uint32_t fps_prev_tick = 0;
-
 
 #ifdef USES_SWSCALER
 	static int fit = 1;
@@ -4818,17 +4796,6 @@ static void trackFPS(void) {
 		// LOG_info("fps: %f cpu: %f\n", fps_double, cpu_double);
 	}
 
-	// Rolling FPS for audio ratio (16-frame window ≈ 267ms at 60fps)
-	uint32_t now_t = SDL_GetTicks();
-	if (fps_prev_tick > 0 && now_t > fps_prev_tick) {
-		fps_frame_deltas[fps_delta_idx] = now_t - fps_prev_tick;
-		fps_delta_idx = (fps_delta_idx + 1) % FPS_ROLLING_WINDOW;
-		uint32_t delta_sum = 0;
-		for (int i = 0; i < FPS_ROLLING_WINDOW; i++) delta_sum += fps_frame_deltas[i];
-		if (delta_sum > 0)
-			SND_setFPS((FPS_ROLLING_WINDOW * 1000.0) / delta_sum);
-	}
-	fps_prev_tick = now_t;
 }
 
 static void limitFF(void) {
@@ -4939,12 +4906,6 @@ int main(int argc , char* argv[]) {
 	Config_free();
 		
 	SND_init(core.sample_rate, core.fps);
-	{
-		uint32_t expected_delta = (uint32_t)(1000.0 / core.fps);
-		for (int i = 0; i < FPS_ROLLING_WINDOW; i++) fps_frame_deltas[i] = expected_delta;
-		fps_delta_idx = 0;
-		fps_prev_tick = 0;
-	}
 	InitSettings(); // after we initialize audio
 	Menu_init();
 	State_resume();

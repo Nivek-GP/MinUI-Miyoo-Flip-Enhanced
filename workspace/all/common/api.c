@@ -929,9 +929,6 @@ void GFX_blitText(TTF_Font* font, char* str, int leading, SDL_Color color, SDL_S
 static pthread_mutex_t audio_mutex = PTHREAD_MUTEX_INITIALIZER;
 static SRC_STATE* src_state = NULL;
 static int src_reset_needed = 0;
-static double snd_actual_fps = 0.0;
-static int snd_resample_quality = SND_RESAMPLE_FAST;
-static const int snd_resample_src_map[] = {SRC_LINEAR, SRC_SINC_FASTEST};
 static SND_Frame* resample_buffer = NULL;
 static int resample_buffer_cap = 0;
 static float* fin_buffer = NULL;
@@ -973,16 +970,6 @@ static void SND_audioCallback(void* userdata, uint8_t* stream, int len) {
 	if (len > 0) memset(out, 0, len * sizeof(int16_t) * 2);
 }
 
-void SND_setFPS(double fps) {
-	snd_actual_fps = fps;
-}
-
-void SND_setResampleQuality(int quality) {
-	if (quality < SND_RESAMPLE_FAST || quality > SND_RESAMPLE_GOOD) return;
-	snd_resample_quality = quality;
-	src_reset_needed = 1;
-}
-
 static int snd_used(void) {
 	int in  = snd.frame_in;
 	int out = snd.frame_out;
@@ -998,7 +985,7 @@ static int resample_audio(const SND_Frame* input, int in_count,
 
 	if (!src_state || src_reset_needed) {
 		if (src_state) src_delete(src_state);
-		src_state = src_new(snd_resample_src_map[snd_resample_quality], 2, &error);
+		src_state = src_new(SRC_LINEAR, 2, &error);
 		src_reset_needed = 0;
 	}
 
@@ -1052,22 +1039,16 @@ static int resample_audio(const SND_Frame* input, int in_count,
 size_t SND_batchSamples(const SND_Frame* frames, size_t frame_count) {
 	if (snd.frame_count == 0) return frame_count;
 
-	// Primary ratio: compensate for actual FPS vs target FPS (like NextUI).
-	// If core runs slow (e.g. PS1 heavy scene at 57fps), fps_ratio > 1 → write more samples → buffer stays full.
-	double fps_ratio = 1.0;
-	if (snd_actual_fps > 10.0 && snd.frame_rate > 0.0) {
-		fps_ratio = snd.frame_rate / snd_actual_fps;
-		if (fps_ratio < 0.85) fps_ratio = 0.85;
-		if (fps_ratio > 1.15) fps_ratio = 1.15;
-	}
-
-	// Fine-tuning via occupancy on top of FPS ratio (±0.5%).
+	// Buffer occupancy correction (±1%): keeps ring buffer near 50% fill.
+	// fps_ratio was removed — it caused audible pitch shifting on heavy-core
+	// platforms (PS1) when missed vsyncs made the rolling FPS appear lower than
+	// target, stretching audio by up to 15%. Occupancy alone is sufficient.
 	float occupancy = (float)snd_used() / snd.frame_count;
 	double occ = 1.0;
-	if      (occupancy > 0.75) occ = 0.995;
-	else if (occupancy < 0.25) occ = 1.005;
+	if      (occupancy > 0.75) occ = 0.99;
+	else if (occupancy < 0.25) occ = 1.01;
 
-	double ratio = fps_ratio * occ;
+	double ratio = occ;
 
 	SND_Frame* resampled;
 	int out_count = resample_audio(frames, (int)frame_count, ratio, &resampled);
@@ -1129,7 +1110,6 @@ void SND_init(double sample_rate, double frame_rate) {
 
 	memset(&snd, 0, sizeof(struct SND_Context));
 	snd.frame_rate = frame_rate;
-	snd_actual_fps = frame_rate; // start at target so fps_ratio = 1.0 before measurement
 
 	SDL_AudioSpec spec_in, spec_out;
 	spec_in.freq     = PLAT_pickSampleRate(sample_rate, MAX_SAMPLE_RATE);
