@@ -17,7 +17,7 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | **Reduced input lag** | Audio no longer throttles the emulator. Uses dynamic resampling (libsamplerate) to keep audio in sync without blocking the core. Controls feel noticeably more responsive on PS1, GBA, and SNES. |
 | **Cheat codes** | Per-game cheat support via `.cht` files (RetroArch / libretro-database format). Toggle cheats from the in-game Options menu; state persists across sessions. |
 | **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
-| **Marquee text** | Long game and cheat names no longer overlap cover art or the On/Off indicator. The selected item scrolls horizontally to reveal the full name; unselected items are cleanly truncated with `…`. |
+| **Smart text overflow** | Long game names no longer overlap cover art, and long cheat names no longer cover the On/Off toggle. Unselected items truncate cleanly with `…`; the selected item scrolls horizontally so the full name is always readable. |
 
 ## Download
 
