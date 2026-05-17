@@ -83,6 +83,42 @@ If no `.cht` file is found, the Cheats menu shows the exact path where to place 
 4. Cheats are re-applied automatically when loading a save state
 5. On/Off state is saved back to the `.cht` file when you exit the Cheats menu
 
+## Game art
+
+MinUI displays cover art next to the selected game in the list. Art is loaded from `.png` files placed in a hidden `.res` folder alongside your ROMs.
+
+> Use [ArtSync](https://github.com/Nivek-GP/ArtSync) to automatically download boxart for your entire ROM collection.
+
+### File placement
+
+Art files live in a `.res` folder inside the same directory as the ROM, named after the ROM file with `.png` appended:
+
+```
+/Roms/{system}/
+├── Castlevania - Symphony of the Night (USA).bin
+└── .res/
+    └── Castlevania - Symphony of the Night (USA).bin.png
+```
+
+| Game type | ROM file | Art filename |
+| --- | --- | --- |
+| Single disc | `Crash Bandicoot (USA).bin` | `.res/Crash Bandicoot (USA).bin.png` |
+| Multi-disc (M3U) | `Resident Evil 2 (Spain).m3u` | `.res/Resident Evil 2 (Spain).m3u.png` |
+| Folder | `Castlevania/` | `.res/Castlevania.png` |
+
+> **Note:** `.res` is a hidden folder. On Windows, enable "Show hidden items" in File Explorer to see it.
+
+### Image requirements
+
+- Format: PNG
+- Maximum size: `273 × 273` pixels (images are displayed as-is, no scaling)
+- Smaller images are centered within the art area
+
+### Usage
+
+1. Place the `.png` file in the `.res` folder next to the ROM
+2. Navigate to that game in the list — the art appears automatically on the right side of the screen
+
 ## Building from source
 
 The toolchain uses Docker for ARM64 cross-compilation on x86_64 hosts. See `toolchains/my355-toolchain/Dockerfile` for the build environment. The key dependency is libsamplerate 0.2.2, built as a static ARM64 library inside the container.
