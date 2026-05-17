@@ -3739,6 +3739,8 @@ static void OptionSaveChanges_updateDesc(void) {
 }
 
 #define OPTION_PADDING 8
+#define MARQUEE_PAUSE_MS  1200
+#define MARQUEE_SPEED_PX  40
 
 static int Menu_options(MenuList* list) {
 	MenuItem* items = list->items;
@@ -3762,6 +3764,8 @@ static int Menu_options(MenuList* list) {
 	OptionSaveChanges_updateDesc();
 	
 	int defer_menu = false;
+	uint32_t marquee_start_ms = SDL_GetTicks();
+	int marquee_last_selected = -1;
 	while (show_options) {
 		if (await_input) {
 			defer_menu = true;
@@ -3782,8 +3786,13 @@ static int Menu_options(MenuList* list) {
 		}
 		
 		GFX_startFrame();
+		uint32_t now = SDL_GetTicks();
+		if (selected != marquee_last_selected) {
+			marquee_last_selected = selected;
+			marquee_start_ms = now;
+		}
 		PAD_poll();
-		
+
 		if (PAD_justRepeated(BTN_UP)) {
 			selected -= 1;
 			if (selected<0) {
@@ -4048,35 +4057,84 @@ static int Menu_options(MenuList* list) {
 					MenuItem* item = &items[i];
 					SDL_Color text_color = COLOR_WHITE;
 
-					if (j==selected_row) {
-						// gray pill
+					int max_name_w = mw - SCALE1(OPTION_PADDING * 2);
+					if (item->value >= 0) {
+						int rw = 0;
+						for (int k = 0; item->values[k]; k++) {
+							int vw;
+							TTF_SizeUTF8(font.tiny, item->values[k], &vw, NULL);
+							if (vw > rw) rw = vw;
+						}
+						max_name_w -= rw + SCALE1(OPTION_PADDING);
+					}
+
+					if (j == selected_row) {
+						// gray pill (full row background)
 						GFX_blitPill(ASSET_OPTION, screen, &(SDL_Rect){
 							ox,
 							oy+SCALE1(j*BUTTON_SIZE),
 							mw,
 							SCALE1(BUTTON_SIZE)
 						});
-						
-						// white pill
-						int w = 0;
-						TTF_SizeUTF8(font.small, item->name, &w, NULL);
-						w += SCALE1(OPTION_PADDING*2);
+
+						// white pill covers name area only
 						GFX_blitPill(ASSET_BUTTON, screen, &(SDL_Rect){
 							ox,
 							oy+SCALE1(j*BUTTON_SIZE),
-							w,
+							max_name_w + SCALE1(OPTION_PADDING*2),
 							SCALE1(BUTTON_SIZE)
 						});
 						text_color = COLOR_BLACK;
-						
+
 						if (item->desc) desc = item->desc;
+
+						// marquee: compute scroll offset based on elapsed time
+						int full_w = 0;
+						TTF_SizeUTF8(font.small, item->name, &full_w, NULL);
+						int overflow = full_w - max_name_w;
+						int scroll_x = 0;
+						if (overflow > 0) {
+							uint32_t elapsed = now - marquee_start_ms;
+							if (elapsed > MARQUEE_PAUSE_MS) {
+								uint32_t scroll_ms = elapsed - MARQUEE_PAUSE_MS;
+								scroll_x = (int)(scroll_ms * MARQUEE_SPEED_PX / 1000);
+								if (scroll_x >= overflow) {
+									if (scroll_x >= overflow + MARQUEE_PAUSE_MS * MARQUEE_SPEED_PX / 1000) {
+										marquee_start_ms = now;
+										scroll_x = 0;
+									} else {
+										scroll_x = overflow;
+									}
+								}
+							}
+						}
+
+						text = TTF_RenderUTF8_Blended(font.small, item->name, text_color);
+						SDL_Rect clip = {
+							ox + SCALE1(OPTION_PADDING),
+							oy + SCALE1(j*BUTTON_SIZE),
+							max_name_w,
+							SCALE1(BUTTON_SIZE)
+						};
+						SDL_SetClipRect(screen, &clip);
+						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+							ox + SCALE1(OPTION_PADDING) - scroll_x,
+							oy + SCALE1((j*BUTTON_SIZE)+1)
+						});
+						SDL_SetClipRect(screen, NULL);
+						SDL_FreeSurface(text);
 					}
-					text = TTF_RenderUTF8_Blended(font.small, item->name, text_color);
-					SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
-						ox+SCALE1(OPTION_PADDING),
-						oy+SCALE1((j*BUTTON_SIZE)+1)
-					});
-					SDL_FreeSurface(text);
+					else {
+						// non-selected: truncate with "..."
+						char truncated_name[MAX_PATH];
+						GFX_truncateText(font.small, item->name, truncated_name, max_name_w, 0);
+						text = TTF_RenderUTF8_Blended(font.small, truncated_name, text_color);
+						SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+							ox+SCALE1(OPTION_PADDING),
+							oy+SCALE1((j*BUTTON_SIZE)+1)
+						});
+						SDL_FreeSurface(text);
+					}
 					
 					if (await_input && j==selected_row) {
 						// buh
@@ -4114,15 +4172,15 @@ static int Menu_options(MenuList* list) {
 			}
 			
 			GFX_flip(screen);
-			dirty = 0;
+			dirty = (type == MENU_VAR) ? 1 : 0;
 		}
 		else GFX_sync();
 		hdmimon();
 	}
-	
+
 	// GFX_clearAll();
 	// GFX_flip(screen);
-	
+
 	return 0;
 }
 
