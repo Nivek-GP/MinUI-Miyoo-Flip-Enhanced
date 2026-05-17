@@ -1335,9 +1335,17 @@ int main (int argc, char *argv[]) {
 	int was_online = PLAT_isOnline();
 	
 	// LOG_info("- loop start: %lu\n", SDL_GetTicks() - main_begin);
+	#define MARQUEE_PAUSE_MS 1200
+	#define MARQUEE_SPEED_PX 40
+	uint32_t marquee_start_ms = SDL_GetTicks();
+	int marquee_last_selected = -1;
 	while (!quit) {
 		GFX_startFrame();
 		unsigned long now = SDL_GetTicks();
+		if (top->selected != marquee_last_selected) {
+			marquee_last_selected = top->selected;
+			marquee_start_ms = (uint32_t)now;
+		}
 		
 		PAD_poll();
 			
@@ -1483,15 +1491,16 @@ int main (int argc, char *argv[]) {
 			}
 		}
 		
+		int had_thumb = 0;
 		if (dirty) {
 			GFX_clear(screen);
-			
+
 			int ox;
 			int oy;
-			
-			// simple thumbnail support a thumbnail for a file or folder named NAME.EXT needs a corresponding /.res/NAME.EXT.png 
+
+			// simple thumbnail support a thumbnail for a file or folder named NAME.EXT needs a corresponding /.res/NAME.EXT.png
 			// that is no bigger than platform FIXED_HEIGHT x FIXED_HEIGHT
-			int had_thumb = 0;
+			had_thumb = 0;
 			if (!show_version && total>0) {
 				Entry* entry = top->entries->items[top->selected];
 				char res_path[MAX_PATH];
@@ -1592,54 +1601,91 @@ int main (int argc, char *argv[]) {
 						Entry* entry = top->entries->items[i];
 						char* entry_name = entry->name;
 						char* entry_unique = entry->unique;
-						int available_width = (had_thumb && j!=selected_row ? ox : screen->w) - SCALE1(PADDING * 2);
-						if (i==top->start && !(had_thumb && j!=selected_row)) available_width -= ow; // 
-					
+						int available_width = (had_thumb ? ox : screen->w) - SCALE1(PADDING * 2);
+						if (i==top->start && !had_thumb) available_width -= ow;
+
 						SDL_Color text_color = COLOR_WHITE;
-					
+
 						trimSortingMeta(&entry_name);
-					
-						char display_name[256];
-						int text_width = GFX_truncateText(font.large, entry_unique ? entry_unique : entry_name, display_name, available_width, SCALE1(BUTTON_PADDING*2));
-						int max_width = MIN(available_width, text_width);
-						if (j==selected_row) {
+
+						if (j == selected_row) {
+							// selected: white pill + marquee scroll
+							char* src_name = entry_unique ? entry_unique : entry_name;
+							int full_w = 0;
+							TTF_SizeUTF8(font.large, src_name, &full_w, NULL);
+							int pill_w = MIN(available_width, full_w + SCALE1(BUTTON_PADDING*2));
 							GFX_blitPill(ASSET_WHITE_PILL, screen, &(SDL_Rect){
 								SCALE1(PADDING),
 								SCALE1(PADDING+(j*PILL_SIZE)),
-								max_width,
+								pill_w,
 								SCALE1(PILL_SIZE)
 							});
 							text_color = COLOR_BLACK;
+
+							int text_area_w = available_width - SCALE1(BUTTON_PADDING*2);
+							int overflow = full_w - text_area_w;
+							int scroll_x = 0;
+							if (overflow > 0) {
+								uint32_t elapsed = (uint32_t)now - marquee_start_ms;
+								if (elapsed > MARQUEE_PAUSE_MS) {
+									uint32_t scroll_ms = elapsed - MARQUEE_PAUSE_MS;
+									scroll_x = (int)(scroll_ms * MARQUEE_SPEED_PX / 1000);
+									if (scroll_x >= overflow) {
+										if (scroll_x >= overflow + MARQUEE_PAUSE_MS * MARQUEE_SPEED_PX / 1000) {
+											marquee_start_ms = (uint32_t)now;
+											scroll_x = 0;
+										} else {
+											scroll_x = overflow;
+										}
+									}
+								}
+							}
+
+							SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, src_name, text_color);
+							SDL_Rect clip = {
+								SCALE1(PADDING+BUTTON_PADDING),
+								SCALE1(PADDING+(j*PILL_SIZE)),
+								text_area_w,
+								SCALE1(PILL_SIZE)
+							};
+							SDL_SetClipRect(screen, &clip);
+							SDL_BlitSurface(text, NULL, screen, &(SDL_Rect){
+								SCALE1(PADDING+BUTTON_PADDING) - scroll_x,
+								SCALE1(PADDING+(j*PILL_SIZE)+4)
+							});
+							SDL_SetClipRect(screen, NULL);
+							SDL_FreeSurface(text);
 						}
-						else if (entry->unique) {
-							trimSortingMeta(&entry_unique);
-							char unique_name[256];
-							GFX_truncateText(font.large, entry_unique, unique_name, available_width, SCALE1(BUTTON_PADDING*2));
-						
-							SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, unique_name, COLOR_DARK_TEXT);
+						else {
+							// non-selected: truncate with "..."
+							char display_name[256];
+							int text_width = GFX_truncateText(font.large, entry_unique ? entry_unique : entry_name, display_name, available_width, SCALE1(BUTTON_PADDING*2));
+							int max_width = MIN(available_width, text_width);
+
+							if (entry->unique) {
+								trimSortingMeta(&entry_unique);
+								char unique_name[256];
+								GFX_truncateText(font.large, entry_unique, unique_name, available_width, SCALE1(BUTTON_PADDING*2));
+
+								SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, unique_name, COLOR_DARK_TEXT);
+								SDL_BlitSurface(text, &(SDL_Rect){
+									0, 0, max_width-SCALE1(BUTTON_PADDING*2), text->h
+								}, screen, &(SDL_Rect){
+									SCALE1(PADDING+BUTTON_PADDING),
+									SCALE1(PADDING+(j*PILL_SIZE)+4)
+								});
+
+								GFX_truncateText(font.large, entry_name, display_name, available_width, SCALE1(BUTTON_PADDING*2));
+							}
+							SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, display_name, text_color);
 							SDL_BlitSurface(text, &(SDL_Rect){
-								0,
-								0,
-								max_width-SCALE1(BUTTON_PADDING*2),
-								text->h
+								0, 0, max_width-SCALE1(BUTTON_PADDING*2), text->h
 							}, screen, &(SDL_Rect){
 								SCALE1(PADDING+BUTTON_PADDING),
 								SCALE1(PADDING+(j*PILL_SIZE)+4)
 							});
-						
-							GFX_truncateText(font.large, entry_name, display_name, available_width, SCALE1(BUTTON_PADDING*2));
+							SDL_FreeSurface(text);
 						}
-						SDL_Surface* text = TTF_RenderUTF8_Blended(font.large, display_name, text_color);
-						SDL_BlitSurface(text, &(SDL_Rect){
-							0,
-							0,
-							max_width-SCALE1(BUTTON_PADDING*2),
-							text->h
-						}, screen, &(SDL_Rect){
-							SCALE1(PADDING+BUTTON_PADDING),
-							SCALE1(PADDING+(j*PILL_SIZE)+4)
-						});
-						SDL_FreeSurface(text);
 					}
 				}
 				else {
@@ -1671,10 +1717,10 @@ int main (int argc, char *argv[]) {
 			}
 
 			GFX_flip(screen);
-			dirty = 0;
+			dirty = had_thumb ? 1 : 0;
 		}
 		else GFX_sync();
-		
+
 		// if (!first_draw) {
 		// 	first_draw = SDL_GetTicks();
 		// 	LOG_info("- first draw: %lu\n", first_draw - main_begin);

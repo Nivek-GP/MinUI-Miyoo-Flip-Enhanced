@@ -17,40 +17,42 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | **Reduced input lag** | Audio no longer throttles the emulator. Uses dynamic resampling (libsamplerate) to keep audio in sync without blocking the core. Controls feel noticeably more responsive on PS1, GBA, and SNES. |
 | **Cheat codes** | Per-game cheat support via `.cht` files (RetroArch / libretro-database format). Toggle cheats from the in-game Options menu; state persists across sessions. |
 | **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
+| **Marquee text** | Long game and cheat names no longer overlap cover art or the On/Off indicator. The selected item scrolls horizontally to reveal the full name; unselected items are cleanly truncated with `…`. |
 
 ## Download
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minarch.elf`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minui.elf` and `minarch.elf`.
 
 ## Installation
 
-If you already have MinUI installed on your Miyoo Flip, you only need to replace one file — no full reinstall required.
+If you already have MinUI installed on your Miyoo Flip, you only need to replace two files — no full reinstall required.
 
 ### Step 1 — Download
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minarch.elf`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download both `minui.elf` and `minarch.elf`.
 
-### Step 2 — Locate the file on your SD card
+### Step 2 — Locate the files on your SD card
 
 Insert your SD card into your PC. Navigate to:
 
 ```
-.system/my355/bin/minarch.elf
+.system/my355/bin/
 ```
 
 > **Note:** `.system` is a hidden folder. On Windows, enable "Show hidden items" in File Explorer (View → Show → Hidden items).
 
-### Step 3 — Replace the file
+### Step 3 — Replace the files
 
-1. Make a backup copy of the original `minarch.elf` (rename it to `minarch.elf.bak`)
-2. Copy the downloaded `minarch.elf` into `.system/my355/bin/`
+1. Make a backup of each original file (rename to `.bak`)
+2. Copy `minui.elf` and `minarch.elf` into `.system/my355/bin/`
 3. Safely eject the SD card and reinsert it into the device
 
 ### Step 4 — Verify
 
-Open any game and press **MENU** to open the pause menu. You should now see **Save & Quit** between Options and Quit.
+- **Game list**: navigate to a folder with cover art — long game names should no longer overlap the artwork.
+- **Cheats**: open a game → **Menu → Options → Cheats** — long cheat names scroll instead of overlapping the On/Off toggle.
 
-To revert, delete the new file and rename `minarch.elf.bak` back to `minarch.elf`.
+To revert, delete the new files and rename the `.bak` files back to their original names.
 
 ## Cheat codes
 
