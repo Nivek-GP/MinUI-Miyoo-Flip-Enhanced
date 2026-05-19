@@ -3800,7 +3800,7 @@ static MenuList cheats_menu_list = {
 	.type      = MENU_VAR,
 	.on_change = OptionCheats_changed,
 	.on_delete = OptionCheats_delete,
-	.desc      = "Press left and right to toggle on/off and Y to delete cheat.",
+	.desc      = "Press Y to delete selected cheat.",
 	.items     = NULL,
 };
 
