@@ -3246,6 +3246,7 @@ enum {
 	MENU_CALLBACK_NOP,
 	MENU_CALLBACK_EXIT,
 	MENU_CALLBACK_NEXT_ITEM,
+	MENU_CALLBACK_REBUILD,
 };
 typedef int (*MenuList_callback_t)(MenuList* list, int i);
 typedef struct MenuItem {
@@ -3273,6 +3274,7 @@ typedef struct MenuList {
 	MenuItem* items;
 	MenuList_callback_t on_confirm;
 	MenuList_callback_t on_change;
+	MenuList_callback_t on_delete;
 } MenuList;
 
 static int Menu_message(char* message, char** pairs) {
@@ -3299,6 +3301,31 @@ static int Menu_message(char* message, char** pairs) {
 	}
 	GFX_setMode(MODE_MENU);
 	return MENU_CALLBACK_NOP; // TODO: this should probably be an arg
+}
+
+static int Menu_confirm(char* message) {
+	char* pairs[] = {"B","No","A","Yes",NULL};
+	GFX_setMode(MODE_MAIN);
+	int dirty = 1;
+	int result = 0;
+	while (1) {
+		GFX_startFrame();
+		PAD_poll();
+		if (PAD_justPressed(BTN_A)) { result = 1; break; }
+		if (PAD_justPressed(BTN_B)) { result = 0; break; }
+		PWR_update(&dirty, NULL, Menu_beforeSleep, Menu_afterSleep);
+		if (dirty) {
+			GFX_clear(screen);
+			GFX_blitMessage(font.medium, message, screen,
+				&(SDL_Rect){0, SCALE1(PADDING), screen->w, screen->h - SCALE1(PILL_SIZE + PADDING)});
+			GFX_blitButtonGroup(pairs, 0, screen, 1);
+			GFX_flip(screen);
+			dirty = 0;
+		} else GFX_sync();
+		hdmimon();
+	}
+	GFX_setMode(MODE_MENU);
+	return result;
 }
 
 static int Menu_options(MenuList* list);
@@ -3689,9 +3716,91 @@ static int OptionCheats_changed(MenuList* list, int i) {
 	return MENU_CALLBACK_NOP;
 }
 
+static void wordwrap(TTF_Font* fnt, const char* src, char* dst, int dst_size, int max_px) {
+	char buf[512];
+	char cur_line[512] = "";
+	int di = 0;
+
+	strncpy(buf, src, sizeof(buf) - 1);
+	buf[sizeof(buf) - 1] = '\0';
+
+	char* word = strtok(buf, " ");
+	while (word) {
+		char test[512];
+		if (cur_line[0])
+			snprintf(test, sizeof(test), "%s %s", cur_line, word);
+		else
+			snprintf(test, sizeof(test), "%s", word);
+
+		int w = 0;
+		TTF_SizeUTF8(fnt, test, &w, NULL);
+
+		if (cur_line[0] && w > max_px) {
+			int n = strlen(cur_line);
+			if (di + n + 1 < dst_size) {
+				memcpy(dst + di, cur_line, n);
+				di += n;
+				dst[di++] = '\n';
+			}
+			snprintf(cur_line, sizeof(cur_line), "%s", word);
+		} else {
+			snprintf(cur_line, sizeof(cur_line), "%s", test);
+		}
+		word = strtok(NULL, " ");
+	}
+
+	int n = strlen(cur_line);
+	if (di + n < dst_size) {
+		memcpy(dst + di, cur_line, n);
+		di += n;
+	}
+	dst[di] = '\0';
+}
+
+static int OptionCheats_delete(MenuList* list, int i) {
+	char wrapped[512];
+	wordwrap(font.medium, cheatcodes.cheats[i].desc ? cheatcodes.cheats[i].desc : "",
+		wrapped, sizeof(wrapped), screen->w - SCALE1(PADDING * 4));
+
+	char msg[640];
+	snprintf(msg, sizeof(msg), "Delete cheat?\n\n%s", wrapped);
+	if (!Menu_confirm(msg)) return MENU_CALLBACK_NOP;
+
+	free(cheatcodes.cheats[i].desc);
+	free(cheatcodes.cheats[i].code);
+
+	for (int j = i; j < cheatcodes.count - 1; j++)
+		cheatcodes.cheats[j] = cheatcodes.cheats[j + 1];
+	cheatcodes.count--;
+
+	Cheats_save();
+	Cheats_apply();
+
+	if (cheatcodes.count == 0) {
+		free(cheat_items);
+		cheat_items = NULL;
+		return MENU_CALLBACK_EXIT;
+	}
+
+	free(cheat_items);
+	cheat_items = calloc(cheatcodes.count + 1, sizeof(MenuItem));
+	for (int j = 0; j < cheatcodes.count; j++) {
+		cheat_items[j].name   = cheatcodes.cheats[j].desc;
+		cheat_items[j].values = cheat_toggle_values;
+		cheat_items[j].value  = cheatcodes.cheats[j].enabled;
+	}
+	cheat_items[cheatcodes.count] = (MenuItem){NULL};
+	list->items = cheat_items;
+	list->max_width = 0;
+
+	return MENU_CALLBACK_REBUILD;
+}
+
 static MenuList cheats_menu_list = {
 	.type      = MENU_VAR,
 	.on_change = OptionCheats_changed,
+	.on_delete = OptionCheats_delete,
+	.desc      = "Press left and right to toggle on/off and Y to delete cheat.",
 	.items     = NULL,
 };
 
@@ -3884,10 +3993,10 @@ static int Menu_options(MenuList* list) {
 			if (PAD_justPressed(BTN_X)) {
 				MenuItem* item = &items[selected];
 				item->value = 0;
-				
+
 				if (item->on_change) item->on_change(list, selected);
 				else if (list->on_change) list->on_change(list, selected);
-				
+
 				// copied from PAD_justRepeated(BTN_DOWN) above
 				selected += 1;
 				if (selected>=count) {
@@ -3902,7 +4011,20 @@ static int Menu_options(MenuList* list) {
 				dirty = 1;
 			}
 		}
-		
+		else if (list->on_delete && PAD_justPressed(BTN_Y)) {
+			int result = list->on_delete(list, selected);
+			if (result == MENU_CALLBACK_EXIT) {
+				show_options = 0;
+			} else if (result == MENU_CALLBACK_REBUILD) {
+				items = list->items;
+				for (count = 0; items[count].name; count++);
+				if (selected >= count) selected = MAX(0, count - 1);
+				start = MAX(0, selected - max_visible_options + 1);
+				end   = MIN(count, start + max_visible_options);
+			}
+			dirty = 1;
+		}
+
 		if (!defer_menu) PWR_update(&dirty, &show_settings, Menu_beforeSleep, Menu_afterSleep);
 		
 		if (defer_menu && PAD_justReleased(BTN_MENU)) defer_menu = false;

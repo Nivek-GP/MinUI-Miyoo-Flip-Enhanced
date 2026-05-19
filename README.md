@@ -18,6 +18,7 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | **Cheat codes** | Per-game cheat support via `.cht` files (RetroArch / libretro-database format). Toggle cheats from the in-game Options menu; state persists across sessions. |
 | **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
 | **Smart text overflow** | Long game names no longer overlap cover art, and long cheat names no longer cover the On/Off toggle. Unselected items truncate cleanly with `…`; the selected item scrolls horizontally so the full name is always readable. |
+| **Delete cheats in-game** | Press **Y** on any cheat in the Cheats menu to delete it from the `.cht` file. A confirmation dialog shows the full cheat name (wrapping across lines if needed) before removing it. Useful for cleaning up cheats that don't work without having to edit files on a PC. |
 
 ## Download
 
@@ -79,9 +80,10 @@ If no `.cht` file is found, the Cheats menu shows the exact path where to place 
 
 1. Copy a `.cht` file to `/Cheats/{core}/` on the SD card, named after the ROM file (including extension)
 2. Launch the game → **Menu → Options → Cheats**
-3. Toggle individual cheats On/Off — changes apply immediately
-4. Cheats are re-applied automatically when loading a save state
-5. On/Off state is saved back to the `.cht` file when you exit the Cheats menu
+3. Toggle individual cheats On/Off with **left/right** — changes apply immediately
+4. Press **Y** on any cheat to delete it from the file (a confirmation dialog will appear)
+5. Cheats are re-applied automatically when loading a save state
+6. On/Off state and any deletions are saved back to the `.cht` file when you exit the Cheats menu
 
 ## Game art
 
