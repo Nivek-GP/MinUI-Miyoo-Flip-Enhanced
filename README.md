@@ -19,10 +19,17 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
 | **Smart text overflow** | Long game names no longer overlap cover art, and long cheat names no longer cover the On/Off toggle. Unselected items truncate cleanly with `…`; the selected item scrolls horizontally so the full name is always readable. |
 | **Delete cheats in-game** | Press **Y** on any cheat in the Cheats menu to delete it from the `.cht` file. A confirmation dialog shows the full cheat name (wrapping across lines if needed) before removing it. Useful for cleaning up cheats that don't work without having to edit files on a PC. |
+| **Collections Manager** | On-device tool to create, rename, and delete game collections, and add or remove games from them — all without a PC. Launches from **Extras → Tools → Collections**. |
 
 ## Download
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minui.elf` and `minarch.elf`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download the files you need:
+
+| File | What it is |
+| --- | --- |
+| `minui.elf` | Main launcher binary |
+| `minarch.elf` | Emulator core binary |
+| `Collections.pak.zip` | On-device collections manager tool |
 
 ## Installation
 
@@ -30,7 +37,7 @@ If you already have MinUI installed on your Miyoo Flip, you only need to replace
 
 ### Step 1 — Download
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download both `minui.elf` and `minarch.elf`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minui.elf` and `minarch.elf`.
 
 ### Step 2 — Locate the files on your SD card
 
@@ -120,6 +127,29 @@ Art files live in a `.res` folder inside the same directory as the ROM, named af
 
 1. Place the `.png` file in the `.res` folder next to the ROM
 2. Navigate to that game in the list — the art appears automatically on the right side of the screen
+
+## Collections Manager
+
+An on-device tool for managing MinUI collections without a PC. Launch it from **Extras → Tools → Collections**.
+
+### Installation
+
+1. Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `Collections.pak.zip`
+2. Extract and copy the `Collections.pak/` folder to `EXTRAS/Tools/my355/` on your SD card
+
+### Usage
+
+Collections are stored as `.txt` files in `/Collections/` on the SD card (one game path per line). The tool creates this folder automatically on first launch.
+
+| Screen | Button | Action |
+| --- | --- | --- |
+| Collection list | **A** | Open collection / create new |
+| Collection list | **X** | Rename collection |
+| Collection list | **Y** | Delete collection (confirmation required) |
+| Collection list | **B** | Exit |
+| Inside a collection | **A** on `[+ Add Game]` | Browse Roms and add a game |
+| Inside a collection | **Y** | Remove game (confirmation required) |
+| Inside a collection | **B** | Back to collection list |
 
 ## Building from source
 

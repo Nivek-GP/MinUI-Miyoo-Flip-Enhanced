@@ -54,6 +54,11 @@ system:
 	cp ./workspace/all/say/build/$(PLATFORM)/say.elf ./build/SYSTEM/$(PLATFORM)/bin/
 	cp ./workspace/all/clock/build/$(PLATFORM)/clock.elf ./build/EXTRAS/Tools/$(PLATFORM)/Clock.pak/
 	cp ./workspace/all/minput/build/$(PLATFORM)/minput.elf ./build/EXTRAS/Tools/$(PLATFORM)/Input.pak/
+ifeq ($(PLATFORM),my355)
+	mkdir -p ./build/EXTRAS/Tools/my355/Collections.pak/res
+	cp ./workspace/my355/other/DinguxCommander-sdl2/res/Fiery_Turk.ttf ./build/EXTRAS/Tools/my355/Collections.pak/res/
+	cp ./workspace/all/colmgr/build/my355/colmgr.elf ./build/EXTRAS/Tools/my355/Collections.pak/
+endif
 
 cores: # TODO: can't assume every platform will have the same stock cores (platform should be responsible for copy too)
 	# stock cores
