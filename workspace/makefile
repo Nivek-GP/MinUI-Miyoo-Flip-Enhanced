@@ -24,6 +24,9 @@ all:
 	cd ./all/minput/ && make
 	cd ./all/syncsettings/ && make
 	cd ./all/say/ && make
+ifeq ($(PLATFORM),my355)
+	cd ./all/colmgr/ && make
+endif
 	cd ./$(PLATFORM)/cores && make
 	cd ./$(PLATFORM) && make
 
@@ -36,4 +39,7 @@ clean:
 	cd ./all/minput/ && make clean
 	cd ./all/syncsettings/ && make clean
 	cd ./all/say/ && make clean
+ifeq ($(PLATFORM),my355)
+	cd ./all/colmgr/ && make clean
+endif
 	cd ./$(PLATFORM) && make clean
