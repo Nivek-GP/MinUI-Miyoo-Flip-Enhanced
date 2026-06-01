@@ -163,18 +163,17 @@ void SetBrightness(int value) {
 	
 	int raw;
 	switch (value) {
-		// TODO :revisit
-		case  0: raw =   1; break;	// 
-		case  1: raw =   6; break;	// 
-		case  2: raw =  10; break;	// 
-		case  3: raw =  16; break;	// 
-		case  4: raw =  32; break;	// 
-		case  5: raw =  48; break;	// 
-		case  6: raw =  64; break;	// 
-		case  7: raw =  96; break;	// 
-		case  8: raw = 128; break;	// 
-		case  9: raw = 192; break;	// 
-		case 10: raw = 255; break;	// 
+		case  0: raw =   1; break;
+		case  1: raw =  25; break;
+		case  2: raw =  50; break;
+		case  3: raw =  75; break;
+		case  4: raw = 100; break;
+		case  5: raw = 128; break;
+		case  6: raw = 153; break;
+		case  7: raw = 178; break;
+		case  8: raw = 204; break;
+		case  9: raw = 229; break;
+		case 10: raw = 255; break;
 	}
 	
 	SetRawBrightness(raw);
