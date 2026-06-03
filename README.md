@@ -20,7 +20,6 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | **Smart text overflow** | Long game names no longer overlap cover art, and long cheat names no longer cover the On/Off toggle. Unselected items truncate cleanly with `…`; the selected item scrolls horizontally so the full name is always readable. |
 | **Delete cheats in-game** | Press **Y** on any cheat in the Cheats menu to delete it from the `.cht` file. A confirmation dialog shows the full cheat name (wrapping across lines if needed) before removing it. Useful for cleaning up cheats that don't work without having to edit files on a PC. |
 | **Collections Manager** | On-device tool to create, rename, and delete game collections, and add or remove games from them — all without a PC. Launches from **Extras → Tools → Collections**. |
-| **Even brightness steps** | Brightness levels are redistributed so each step produces a clearly visible change. Previously steps 1–3 were nearly indistinguishable from step 0 (all under 7% brightness). |
 
 ## Download
 
