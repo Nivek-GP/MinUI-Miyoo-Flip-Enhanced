@@ -162,6 +162,6 @@ The toolchain uses Docker for ARM64 cross-compilation on x86_64 hosts. See `tool
 
 - [CheatSync](https://github.com/Nivek-GP/CheatSync) — desktop app to auto-download `.cht` cheat files for your ROM collection
 - [ArtSync](https://github.com/Nivek-GP/ArtSync) — desktop app to auto-download boxart for your ROM collection
-- [minui-portmaster-flip](https://github.com/Nivek-GP/minui-portmaster-flip) — PortMaster PAK for Miyoo Flip
+- [Portmaster for MinUI — Miyoo Flip](https://github.com/Nivek-GP/Portmaster-MinUI-Miyoo-Flip) — PortMaster PAK for MinUI on the Miyoo Flip
 - [MinUI](https://github.com/shauninman/MinUI) — the original project by shauninman
 - [libretro-database](https://github.com/libretro/libretro-database) — source of all cheat files
