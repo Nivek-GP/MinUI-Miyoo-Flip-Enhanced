@@ -213,7 +213,7 @@ static void getUniqueName(Entry* entry, char* out_name) {
 
 static void Directory_index(Directory* self) {
 	int is_collection = prefixMatch(COLLECTIONS_PATH, self->path);
-	int skip_index = exactMatch(FAUX_RECENT_PATH, self->path) || is_collection; // not alphabetized
+	int skip_index = exactMatch(FAUX_RECENT_PATH, self->path) || exactMatch(FAUX_FAVORITES_PATH, self->path) || is_collection; // not alphabetized
 	
 	Hash* map = NULL;
 	char map_path[256];
@@ -323,6 +323,7 @@ static void Directory_index(Directory* self) {
 
 static Array* getRoot(void);
 static Array* getRecents(void);
+static Array* getFavorites(void);
 static Array* getCollection(char* path);
 static Array* getDiscs(char* path);
 static Array* getEntries(char* path);
@@ -339,6 +340,9 @@ static Directory* Directory_new(char* path, int selected) {
 	}
 	else if (exactMatch(path, FAUX_RECENT_PATH)) {
 		self->entries = getRecents();
+	}
+	else if (exactMatch(path, FAUX_FAVORITES_PATH)) {
+		self->entries = getFavorites();
 	}
 	else if (!exactMatch(path, COLLECTIONS_PATH) && prefixMatch(COLLECTIONS_PATH, path) && suffixMatch(".txt", path)) {
 		self->entries = getCollection(path);
@@ -360,6 +364,30 @@ static void Directory_free(Directory* self) {
 	EntryArray_free(self->entries);
 	IntArray_free(self->alphas);
 	free(self);
+}
+
+// rebuild an already-open directory's entries in place (used for live favorites refresh)
+static void Directory_reload(Directory* self, Array* entries) {
+	EntryArray_free(self->entries);
+	self->entries = entries;
+	IntArray_free(self->alphas);
+	self->alphas = IntArray_new();
+	Directory_index(self);
+
+	int total = self->entries->count;
+	if (self->selected>=total) self->selected = total-1;
+	if (self->selected<0) self->selected = 0;
+
+	if (self->selected<MAIN_ROW_COUNT) {
+		self->start = 0;
+		self->end = (total<MAIN_ROW_COUNT) ? total : MAIN_ROW_COUNT;
+	}
+	else {
+		self->end = self->selected+1;
+		if (self->end>total) self->end = total;
+		self->start = self->end - MAIN_ROW_COUNT;
+		if (self->start<0) self->start = 0;
+	}
 }
 
 static void DirectoryArray_pop(Array* self) {
@@ -422,6 +450,7 @@ static void RecentArray_free(Array* self) {
 static Directory* top;
 static Array* stack; // DirectoryArray
 static Array* recents; // RecentArray
+static Array* favorites; // FavoriteArray (char* relative paths, ordered)
 
 static int quit = 0;
 static int can_resume = 0;
@@ -518,7 +547,9 @@ static int hasM3u(char* rom_path, char* m3u_path) { // NOTE: rom_path not dir_pa
 static int hasRecents(void) {
 	LOG_info("hasRecents %s\n", RECENT_PATH);
 	int has = 0;
-	
+
+	while (recents->count>0) Recent_free(Array_pop(recents)); // clear so a rebuild doesn't duplicate
+
 	Array* parent_paths = Array_new();
 	if (exists(CHANGE_DISC_PATH)) {
 		char sd_path[256];
@@ -593,8 +624,73 @@ static int hasRecents(void) {
 	}
 	
 	saveRecents();
-	
+
 	StringArray_free(parent_paths);
+	return has>0;
+}
+
+static int FavoriteArray_indexOf(Array* self, char* str) {
+	for (int i=0; i<self->count; i++) {
+		if (exactMatch(self->items[i], str)) return i;
+	}
+	return -1;
+}
+static void saveFavorites(void) {
+	FILE* file = fopen(FAVORITES_PATH, "w");
+	if (file) {
+		for (int i=0; i<favorites->count; i++) {
+			fputs(favorites->items[i], file);
+			putc('\n', file);
+		}
+		fclose(file);
+	}
+}
+static int isFavorite(char* sd_path) {
+	char* path = sd_path + strlen(SDCARD_PATH); // makes paths platform agnostic
+	return FavoriteArray_indexOf(favorites, path)!=-1;
+}
+static void toggleFavorite(char* sd_path) {
+	char* path = sd_path + strlen(SDCARD_PATH); // makes paths platform agnostic
+	int id = FavoriteArray_indexOf(favorites, path);
+	if (id==-1) { // add to end
+		Array_push(favorites, strdup(path));
+	}
+	else { // remove
+		free(favorites->items[id]);
+		for (int i=id; i<favorites->count-1; i++) {
+			favorites->items[i] = favorites->items[i+1];
+		}
+		favorites->count -= 1;
+	}
+	saveFavorites();
+}
+static int hasFavorites(void) {
+	int has = 0;
+
+	while (favorites->count>0) free(Array_pop(favorites)); // clear so a rebuild doesn't duplicate
+
+	FILE* file = fopen(FAVORITES_PATH, "r");
+	if (file) {
+		char line[256];
+		while (fgets(line,256,file)!=NULL) {
+			normalizeNewline(line);
+			trimTrailingNewlines(line);
+			if (strlen(line)==0) continue; // skip empty lines
+
+			char sd_path[256];
+			sprintf(sd_path, "%s%s", SDCARD_PATH, line);
+			if (exists(sd_path)) { // prune games no longer on the SD card
+				Array_push(favorites, strdup(line));
+
+				char emu_name[256];
+				getEmuName(sd_path, emu_name);
+				if (hasEmu(emu_name)) has += 1;
+			}
+		}
+		fclose(file);
+	}
+
+	saveFavorites(); // persist the pruned list
 	return has>0;
 }
 static int hasCollections(void) {
@@ -640,7 +736,8 @@ static Array* getRoot(void) {
 	Array* root = Array_new();
 	
 	if (hasRecents()) Array_push(root, Entry_new(FAUX_RECENT_PATH, ENTRY_DIR));
-	
+	if (hasFavorites()) Array_push(root, Entry_new(FAUX_FAVORITES_PATH, ENTRY_DIR));
+
 	Array* entries = Array_new();
 	DIR* dh = opendir(ROMS_PATH);
 	if (dh!=NULL) {
@@ -766,6 +863,22 @@ static Array* getRecents(void) {
 			entry->name = strdup(recent->alias);
 		}
 		Array_push(entries, entry);
+	}
+	return entries;
+}
+static Array* getFavorites(void) {
+	Array* entries = Array_new();
+	for (int i=0; i<favorites->count; i++) { // stored order preserves "added to end"
+		char sd_path[256];
+		sprintf(sd_path, "%s%s", SDCARD_PATH, (char*)favorites->items[i]);
+		if (!exists(sd_path)) continue;
+
+		char emu_name[256];
+		getEmuName(sd_path, emu_name);
+		if (!hasEmu(emu_name)) continue;
+
+		int type = suffixMatch(".pak", sd_path) ? ENTRY_PAK : ENTRY_ROM;
+		Array_push(entries, Entry_new(sd_path, type));
 	}
 	return entries;
 }
@@ -1186,14 +1299,14 @@ static void Entry_open(Entry* self) {
 	recent_alias = self->name;  // yiiikes
 	if (self->type==ENTRY_ROM) {
 		char *last = NULL;
-		if (prefixMatch(COLLECTIONS_PATH, top->path)) {
-			char* tmp;
+		char last_path[256];
+		// for collections and favorites, remember the faux-dir path so we can
+		// restore the cursor to the exact game (not the system folder it lives in)
+		if (prefixMatch(COLLECTIONS_PATH, top->path) || exactMatch(top->path, FAUX_FAVORITES_PATH)) {
+			char* tmp = strrchr(self->path, '/');
 			char filename[256];
-			
-			tmp = strrchr(self->path, '/');
 			if (tmp) strcpy(filename, tmp+1);
-			
-			char last_path[256];
+
 			sprintf(last_path, "%s/%s", top->path, filename);
 			last = last_path;
 		}
@@ -1256,7 +1369,7 @@ static void loadLast(void) { // call after loading root directory
 				Entry* entry = top->entries->items[i];
 			
 				// NOTE: strlen() is required for collated_path, '\0' wasn't reading as NULL for some reason
-				if (exactMatch(entry->path, path) || (strlen(collated_path) && prefixMatch(collated_path, entry->path)) || (prefixMatch(COLLECTIONS_PATH, full_path) && suffixMatch(filename, entry->path))) {
+				if (exactMatch(entry->path, path) || (strlen(collated_path) && prefixMatch(collated_path, entry->path)) || (prefixMatch(COLLECTIONS_PATH, full_path) && suffixMatch(filename, entry->path)) || (prefixMatch(FAUX_FAVORITES_PATH, full_path) && suffixMatch(filename, entry->path))) {
 					top->selected = i;
 					if (i>=top->end) {
 						top->start = i;
@@ -1286,12 +1399,15 @@ static void loadLast(void) { // call after loading root directory
 static void Menu_init(void) {
 	stack = Array_new(); // array of open Directories
 	recents = Array_new();
+	favorites = Array_new();
 
 	openDirectory(SDCARD_PATH, 0);
 	loadLast(); // restore state when available
 }
 static void Menu_quit(void) {
 	RecentArray_free(recents);
+	while (favorites->count>0) free(Array_pop(favorites));
+	Array_free(favorites);
 	DirectoryArray_free(stack);
 }
 
@@ -1488,6 +1604,25 @@ int main (int argc, char *argv[]) {
 				dirty = 1;
 				// can_resume = 0;
 				if (total>0) readyResume(top->entries->items[top->selected]);
+			}
+			else if (total>0 && PAD_justPressed(BTN_Y)) {
+				Entry* entry = top->entries->items[top->selected];
+				if (entry->type==ENTRY_ROM) {
+					toggleFavorite(entry->path);
+
+					// live-refresh the root row (show/hide "Favorites").
+					// safe because hasRecents()/hasFavorites() clear before reloading.
+					Directory* root = stack->items[0];
+					Directory_reload(root, getRoot());
+
+					// if we're browsing the Favorites list itself, rebuild it so a
+					// removed game disappears immediately
+					if (exactMatch(top->path, FAUX_FAVORITES_PATH)) {
+						Directory_reload(top, getFavorites());
+					}
+					total = top->entries->count;
+					dirty = 1;
+				}
 			}
 		}
 		
@@ -1694,24 +1829,40 @@ int main (int argc, char *argv[]) {
 				}
 			
 				// buttons
+				int lw = 0; // left pill width (0 when hardware hints are shown)
 				if (show_setting && !GetHDMI()) GFX_blitHardwareHints(screen, show_setting);
-				else if (can_resume) GFX_blitButtonGroup((char*[]){ "X","RESUME",  NULL }, 0, screen, 0);
-				else GFX_blitButtonGroup((char*[]){ 
-					BTN_SLEEP==BTN_POWER?"POWER":"MENU",
-					BTN_SLEEP==BTN_POWER||simple_mode?"SLEEP":"INFO",  
+				else if (can_resume) lw = GFX_blitButtonGroup((char*[]){ "X","RESUME",  NULL }, 0, screen, 0);
+				else lw = GFX_blitButtonGroup((char*[]){
+					BTN_SLEEP==BTN_POWER?"PWR":"MENU",
+					BTN_SLEEP==BTN_POWER||simple_mode?"SLEEP":"INFO",
 					NULL }, 0, screen, 0);
-			
+
+				int rw = 0; // right pill width
 				if (total==0) {
 					if (stack->count>1) {
-						GFX_blitButtonGroup((char*[]){ "B","BACK",  NULL }, 0, screen, 1);
+						rw = GFX_blitButtonGroup((char*[]){ "B","BACK",  NULL }, 0, screen, 1);
 					}
 				}
 				else {
 					if (stack->count>1) {
-						GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
+						rw = GFX_blitButtonGroup((char*[]){ "B","BACK", "A","OPEN", NULL }, 1, screen, 1);
 					}
 					else {
-						GFX_blitButtonGroup((char*[]){ "A","OPEN", NULL }, 0, screen, 1);
+						rw = GFX_blitButtonGroup((char*[]){ "A","OPEN", NULL }, 0, screen, 1);
+					}
+				}
+
+				// favorite toggle hint, centered in the gap between the left and right pills
+				if (!show_setting && total>0) {
+					Entry* sel = top->entries->items[top->selected];
+					if (sel->type==ENTRY_ROM) {
+						char* pairs[] = { "Y", isFavorite(sel->path)?"FAV-":"FAV+", NULL };
+						int yw = GFX_getButtonGroupWidth(pairs, 0);
+						int gap_left = SCALE1(PADDING) + lw;
+						int gap_right = screen->w - SCALE1(PADDING) - rw;
+						if (gap_right-gap_left >= yw) { // only draw if it fits without overlapping
+							GFX_blitButtonGroupAt(pairs, 0, screen, gap_left + ((gap_right-gap_left) - yw)/2);
+						}
 					}
 				}
 			}

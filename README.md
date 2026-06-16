@@ -20,6 +20,7 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 | **Smart text overflow** | Long game names no longer overlap cover art, and long cheat names no longer cover the On/Off toggle. Unselected items truncate cleanly with `…`; the selected item scrolls horizontally so the full name is always readable. |
 | **Delete cheats in-game** | Press **Y** on any cheat in the Cheats menu to delete it from the `.cht` file. A confirmation dialog shows the full cheat name (wrapping across lines if needed) before removing it. Useful for cleaning up cheats that don't work without having to edit files on a PC. |
 | **Collections Manager** | On-device tool to create, rename, and delete game collections, and add or remove games from them — all without a PC. Launches from **Extras → Tools → Collections**. |
+| **Favorites** | Press **Y** on any game to favorite it (a centered `FAV+`/`FAV-` hint shows at the bottom). Favorited games appear in a dynamic **Favorites** list in the main menu, right below *Recently Played*. The list keeps add order, restores your place when you exit a game, and is pruned automatically on launch when games are removed from the SD card. |
 
 ## Download
 
