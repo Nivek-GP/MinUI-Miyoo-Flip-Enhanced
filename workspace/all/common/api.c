@@ -791,54 +791,47 @@ void GFX_blitHardwareHints(SDL_Surface* dst, int show_setting) {
 	
 }
 
-int GFX_blitButtonGroup(char** pairs, int primary, SDL_Surface* dst, int align_right) {
-	int ox;
-	int oy;
-	int ow;
-	char* hint;
-	char* button;
-
-	struct Hint {
-		char* hint;
-		char* button;
-		int ow;
-	} hints[2]; 
-	int w = 0; // individual button dimension
-	int h = 0; // hints index
-	ow = 0; // full pill width
-	ox = align_right ? dst->w - SCALE1(PADDING) : SCALE1(PADDING);
-	oy = dst->h - SCALE1(PADDING + PILL_SIZE);
-	
+int GFX_getButtonGroupWidth(char** pairs, int primary) {
+	int ow = 0; // full pill width
 	for (int i=0; i<2; i++) {
 		if (!pairs[i*2]) break;
 		if (HAS_SKINNY_SCREEN && i!=primary) continue; // space saving
-		
-		button = pairs[i * 2];
-		hint = pairs[i * 2 + 1];
-		w = GFX_getButtonWidth(hint, button);
-		hints[h].hint = hint;
-		hints[h].button = button;
-		hints[h].ow = w;
-		h += 1;
-		ow += SCALE1(BUTTON_MARGIN) + w;
+		ow += SCALE1(BUTTON_MARGIN) + GFX_getButtonWidth(pairs[i*2+1], pairs[i*2]);
 	}
-	
 	ow += SCALE1(BUTTON_MARGIN);
-	if (align_right) ox -= ow;
+	return ow;
+}
+int GFX_blitButtonGroupAt(char** pairs, int primary, SDL_Surface* dst, int ox) {
+	int ow = GFX_getButtonGroupWidth(pairs, primary);
+	int oy = dst->h - SCALE1(PADDING + PILL_SIZE);
+
 	GFX_blitPill(gfx.mode==MODE_MAIN ? ASSET_DARK_GRAY_PILL : ASSET_BLACK_PILL, dst, &(SDL_Rect){
 		ox,
 		oy,
 		ow,
 		SCALE1(PILL_SIZE)
 	});
-	
+
 	ox += SCALE1(BUTTON_MARGIN);
 	oy += SCALE1(BUTTON_MARGIN);
-	for (int i=0; i<h; i++) {
-		GFX_blitButton(hints[i].hint, hints[i].button, dst, &(SDL_Rect){ox,oy});
-		ox += hints[i].ow + SCALE1(BUTTON_MARGIN);
+	for (int i=0; i<2; i++) {
+		if (!pairs[i*2]) break;
+		if (HAS_SKINNY_SCREEN && i!=primary) continue; // space saving
+
+		char* button = pairs[i*2];
+		char* hint = pairs[i*2+1];
+		GFX_blitButton(hint, button, dst, &(SDL_Rect){ox,oy});
+		ox += GFX_getButtonWidth(hint, button) + SCALE1(BUTTON_MARGIN);
 	}
 	return ow;
+}
+int GFX_blitButtonGroup(char** pairs, int primary, SDL_Surface* dst, int align_right) {
+	int ow = GFX_getButtonGroupWidth(pairs, primary);
+	int ox;
+	if (align_right==1)      ox = dst->w - SCALE1(PADDING) - ow; // right
+	else if (align_right==2) ox = (dst->w - ow) / 2;            // screen center
+	else                     ox = SCALE1(PADDING);              // left
+	return GFX_blitButtonGroupAt(pairs, primary, dst, ox);
 }
 
 #define MAX_TEXT_LINES 16

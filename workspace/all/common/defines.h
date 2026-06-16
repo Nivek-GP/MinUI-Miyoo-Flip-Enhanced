@@ -25,6 +25,8 @@
 
 #define FAUX_RECENT_PATH SDCARD_PATH "/Recently Played"
 #define COLLECTIONS_PATH SDCARD_PATH "/Collections"
+#define FAVORITES_PATH SHARED_USERDATA_PATH "/.minui/favorites.txt" // on-disk store
+#define FAUX_FAVORITES_PATH SDCARD_PATH "/Favorites" // root menu entry
 
 #define LAST_PATH "/tmp/last.txt" // transient
 #define CHANGE_DISC_PATH "/tmp/change_disc.txt"
