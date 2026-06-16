@@ -1639,18 +1639,32 @@ int main (int argc, char *argv[]) {
 			if (!show_version && total>0) {
 				Entry* entry = top->entries->items[top->selected];
 				char res_path[MAX_PATH];
-				
+
 				char res_root[MAX_PATH];
 				strcpy(res_root, entry->path);
-				
-				char tmp_path[MAX_PATH];
-				strcpy(tmp_path, entry->path);
-				char* res_name = strrchr(tmp_path, '/') + 1;
 
-				char* tmp = strrchr(res_root, '/');
-				tmp[0] = '\0';
-				
+				char* res_name = strrchr(res_root, '/') + 1;
+				char* tmp = res_name - 1;
+				tmp[0] = '\0'; // res_root is now the parent dir, res_name the basename
+
 				sprintf(res_path, "%s/.res/%s.png", res_root, res_name);
+
+				// Recents/Favorites/Collections can reference a disc file that
+				// lives *inside* a game folder; in that case the cover art belongs
+				// to the folder (named after the folder, stored in the parent
+				// system dir). Fall back to the folder art when the direct lookup
+				// misses, name-agnostically so it survives folder/disc name drift.
+				if (!exists(res_path)) {
+					char* folder_slash = strrchr(res_root, '/');
+					if (folder_slash) {
+						char folder_name[MAX_PATH];
+						strcpy(folder_name, folder_slash + 1);
+						folder_slash[0] = '\0'; // res_root is now the grandparent (system dir)
+						if (prefixMatch(ROMS_PATH, res_root) && strlen(res_root) > strlen(ROMS_PATH))
+							sprintf(res_path, "%s/.res/%s.png", res_root, folder_name);
+					}
+				}
+
 				LOG_info("res_path: %s\n", res_path);
 				if (exists(res_path)) {
 					had_thumb = 1;
