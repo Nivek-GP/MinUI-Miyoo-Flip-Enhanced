@@ -28,6 +28,8 @@
 #define FAVORITES_PATH SHARED_USERDATA_PATH "/.minui/favorites.txt" // on-disk store
 #define FAUX_FAVORITES_PATH SDCARD_PATH "/Favorites" // root menu entry
 
+#define FORK_VERSION "Enhanced v1.7.0" // shown on the version screen; bump per release
+
 #define LAST_PATH "/tmp/last.txt" // transient
 #define CHANGE_DISC_PATH "/tmp/change_disc.txt"
 #define RESUME_SLOT_PATH "/tmp/resume_slot.txt"

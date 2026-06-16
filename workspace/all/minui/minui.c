@@ -1684,7 +1684,10 @@ int main (int argc, char *argv[]) {
 					SDL_Surface* version_txt = TTF_RenderUTF8_Blended(font.large, release, COLOR_WHITE);
 					SDL_Surface* commit_txt = TTF_RenderUTF8_Blended(font.large, "Commit", COLOR_DARK_TEXT);
 					SDL_Surface* hash_txt = TTF_RenderUTF8_Blended(font.large, commit, COLOR_WHITE);
-					
+
+					SDL_Surface* fork_key_txt = TTF_RenderUTF8_Blended(font.large, "Fork", COLOR_DARK_TEXT);
+					SDL_Surface* fork_val_txt = TTF_RenderUTF8_Blended(font.large, FORK_VERSION, COLOR_WHITE);
+
 					SDL_Surface* key_txt = TTF_RenderUTF8_Blended(font.large, extra_key, COLOR_DARK_TEXT);
 					SDL_Surface* val_txt = TTF_RenderUTF8_Blended(font.large, extra_val, COLOR_WHITE);
 					
@@ -1693,10 +1696,12 @@ int main (int argc, char *argv[]) {
 					
 					if (release_txt->w>l_width) l_width = release_txt->w;
 					if (commit_txt->w>l_width) l_width = commit_txt->w;
+					if (fork_key_txt->w>l_width) l_width = fork_key_txt->w;
 					if (key_txt->w>l_width) l_width = commit_txt->w;
 
 					if (version_txt->w>r_width) r_width = version_txt->w;
 					if (hash_txt->w>r_width) r_width = hash_txt->w;
+					if (fork_val_txt->w>r_width) r_width = fork_val_txt->w;
 					if (val_txt->w>r_width) r_width = val_txt->w;
 					
 					#define VERSION_LINE_HEIGHT 24
@@ -1709,7 +1714,10 @@ int main (int argc, char *argv[]) {
 					SDL_BlitSurface(version_txt, NULL, version, &(SDL_Rect){x,0});
 					SDL_BlitSurface(commit_txt, NULL, version, &(SDL_Rect){0,SCALE1(VERSION_LINE_HEIGHT)});
 					SDL_BlitSurface(hash_txt, NULL, version, &(SDL_Rect){x,SCALE1(VERSION_LINE_HEIGHT)});
-					
+
+					SDL_BlitSurface(fork_key_txt, NULL, version, &(SDL_Rect){0,SCALE1(VERSION_LINE_HEIGHT*2)});
+					SDL_BlitSurface(fork_val_txt, NULL, version, &(SDL_Rect){x,SCALE1(VERSION_LINE_HEIGHT*2)});
+
 					SDL_BlitSurface(key_txt, NULL, version, &(SDL_Rect){0,SCALE1(VERSION_LINE_HEIGHT*3)});
 					SDL_BlitSurface(val_txt, NULL, version, &(SDL_Rect){x,SCALE1(VERSION_LINE_HEIGHT*3)});
 					
@@ -1717,6 +1725,8 @@ int main (int argc, char *argv[]) {
 					SDL_FreeSurface(version_txt);
 					SDL_FreeSurface(commit_txt);
 					SDL_FreeSurface(hash_txt);
+					SDL_FreeSurface(fork_key_txt);
+					SDL_FreeSurface(fork_val_txt);
 					SDL_FreeSurface(key_txt);
 					SDL_FreeSurface(val_txt);
 				}
