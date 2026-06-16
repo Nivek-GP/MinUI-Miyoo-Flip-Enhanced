@@ -30,7 +30,6 @@ Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/
 | --- | --- |
 | `minui.elf` | Main launcher binary |
 | `minarch.elf` | Emulator core binary |
-| `libmsettings.so` | Settings library (brightness, volume, etc.) |
 | `Collections.pak.zip` | On-device collections manager tool |
 
 ## Installation
@@ -39,7 +38,9 @@ If you already have MinUI installed on your Miyoo Flip, you only need to replace
 
 ### Step 1 — Download
 
-Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minui.elf`, `minarch.elf`, and `libmsettings.so`.
+Go to the [Releases page](https://github.com/Nivek-GP/MinUI-Miyoo-Flip-Enhanced/releases) and download `minui.elf` and `minarch.elf`.
+
+> **Already on a previous release of this fork?** Newer versions usually only change `minui.elf` — check the release notes and replace just the files that changed.
 
 ### Step 2 — Locate the files on your SD card
 
@@ -47,7 +48,6 @@ Insert your SD card into your PC. Navigate to:
 
 ```
 .system/my355/bin/    ← for minui.elf and minarch.elf
-.system/my355/lib/    ← for libmsettings.so
 ```
 
 > **Note:** `.system` is a hidden folder. On Windows, enable "Show hidden items" in File Explorer (View → Show → Hidden items).
@@ -56,13 +56,13 @@ Insert your SD card into your PC. Navigate to:
 
 1. Make a backup of each original file (rename to `.bak`)
 2. Copy `minui.elf` and `minarch.elf` into `.system/my355/bin/`
-3. Copy `libmsettings.so` into `.system/my355/lib/`
-4. Safely eject the SD card and reinsert it into the device
+3. Safely eject the SD card and reinsert it into the device
 
 ### Step 4 — Verify
 
 - **Game list**: navigate to a folder with cover art — long game names should no longer overlap the artwork.
 - **Cheats**: open a game → **Menu → Options → Cheats** — long cheat names scroll instead of overlapping the On/Off toggle.
+- **Favorites**: select a game and press **Y** (`FAV+` appears at the bottom) — a **Favorites** list appears in the main menu below *Recently Played*.
 
 To revert, delete the new files and rename the `.bak` files back to their original names.
 
