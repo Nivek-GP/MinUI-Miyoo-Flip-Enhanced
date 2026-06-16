@@ -70,7 +70,7 @@ To revert, delete the new files and rename the `.bak` files back to their origin
 
 Cheats are loaded from `.cht` files placed on the SD card. The format is compatible with [libretro-database](https://github.com/libretro/libretro-database/tree/master/cht).
 
-> Use [CheatSync](https://github.com/Nivek-GP/CheatSync) to automatically download `.cht` files for your entire ROM collection.
+> Use [CHTSync](https://github.com/Nivek-GP/CHTSync) to automatically download `.cht` files for your entire ROM collection.
 
 ### File placement
 
@@ -161,7 +161,7 @@ The toolchain uses Docker for ARM64 cross-compilation on x86_64 hosts. See `tool
 
 ## Related
 
-- [CheatSync](https://github.com/Nivek-GP/CheatSync) — desktop app to auto-download `.cht` cheat files for your ROM collection
+- [CHTSync](https://github.com/Nivek-GP/CHTSync) — desktop app to auto-download `.cht` cheat files for your ROM collection
 - [ArtSync](https://github.com/Nivek-GP/ArtSync) — desktop app to auto-download boxart for your ROM collection
 - [Portmaster for MinUI — Miyoo Flip](https://github.com/Nivek-GP/Portmaster-MinUI-Miyoo-Flip) — PortMaster PAK for MinUI on the Miyoo Flip
 - [MinUI](https://github.com/shauninman/MinUI) — the original project by shauninman
