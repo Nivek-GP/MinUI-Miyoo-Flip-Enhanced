@@ -1,0 +1,25 @@
+Original overlay-pack author's notes (RetroArch setup). Kept for reference —
+MinUI reads the viewport from each .cfg's minui_viewport_* keys instead of the
+Custom Aspect settings described below.
+
+Gameboy
+  Video-Scaling: Integer OFF, Aspect Custom, X 80, Y 13, W 480, H 432,
+  Bilinear filtering OFF.
+  Palettes are applied per overlay. All need Core Options > GB colorization =
+  Internal, then:
+    GB_DMG     Internal Palette = Pixelshift - Pack 1
+               Pack 1 palette   = Pixelshift 03 - BGB 0.3 Emulator
+    GB_Pocket  Internal Palette = TWB 2
+               TWB 2 palette    = 117 Silver Shiro
+    GB_Bivert  Internal Palette = Pixelshift - Pack 1
+               Pack 1 palette   = Pixelshift 27 - GBP Bivert
+
+Gameboy Advance
+  Video-Scaling: Integer OFF, Aspect Custom, X 0, Y 0, W 640, H 427,
+  Bilinear filtering OFF.
+  Suggested with a shader from the interpolation folder, or a normal 2x video
+  filter if the device has no shader support.
+
+NeoGeo
+  Video-Scaling: Integer OFF, Aspect Custom, X 16, Y 8, W 608, H 448,
+  Bilinear filtering optional.
