@@ -197,7 +197,7 @@ Collections are stored as `.txt` files in `/Collections/` on the SD card (one ga
 
 The toolchain uses Docker for ARM64 cross-compilation on x86_64 hosts. See `toolchains/my355-toolchain/Dockerfile` for the build environment. The key dependency is libsamplerate 0.2.2, built as a static ARM64 library inside the container.
 
-Building `minarch` with `DEBUG=1` enables audio and frame-time instrumentation — two lines per second in the emulator's log giving ring-buffer health and a per-frame breakdown of emulation, present and sleep time. Normal builds compile it out entirely. `docs/AUDIO_AND_FRAME_BUDGET.md` explains how audio and the frame budget are coupled, how to read that output, and which approaches have already been tried and rejected; worth reading before touching audio or the main loop.
+Building `minarch` with `DEBUG=1` enables audio and frame-time instrumentation — two lines per second in the emulator's log giving ring-buffer health and a per-frame breakdown of emulation, present and sleep time. Normal builds compile it out entirely.
 
 ## Related
 

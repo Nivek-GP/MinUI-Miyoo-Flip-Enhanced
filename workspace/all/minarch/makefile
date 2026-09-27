@@ -28,7 +28,7 @@ CFLAGS   = $(ARCH) -fomit-frame-pointer
 CFLAGS  += $(INCDIR) -DPLATFORM=\"$(PLATFORM)\" -DUSE_$(SDL) -Ofast -std=gnu99
 CFLAGS	+= -Os -flto
 # make DEBUG=1 enables LOG_debug and the audio/frame-time instrumentation
-# (see docs/AUDIO_AND_FRAME_BUDGET.md)
+# (see docs/documentation/AUDIO_AND_FRAME_BUDGET.md)
 ifneq (,$(DEBUG))
 CFLAGS  += -DDEBUG
 endif

@@ -40,7 +40,6 @@ FAKESD
 
 Get-Cheats.ps1
 
-# local editor/agent state and scratch planning notes
+# local editor/agent state and private docs (plans + documentation)
 .claude/
-docs/investigations/
-docs/plans/
+docs/
