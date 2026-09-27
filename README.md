@@ -1,6 +1,6 @@
 <div align="center">
   <h1>MinUI — Miyoo Flip Enhanced</h1>
-  <p>Unofficial MinUI fork for the <strong>Miyoo Flip</strong> — reduced input lag, cheat support, and quality-of-life improvements.</p>
+  <p>Unofficial MinUI fork for the <strong>Miyoo Flip</strong> — reduced input lag, PS1 audio fixes, cheat support, favorites, and bezel art.</p>
   <img src="https://img.shields.io/badge/device-Miyoo%20Flip-blue" alt="Device">
   <img src="https://img.shields.io/badge/based%20on-MinUI%20by%20shauninman-grey" alt="Based on MinUI">
 </div>
