@@ -14,15 +14,14 @@ This project was born out of love for the Miyoo Flip — a console that deserves
 
 | Feature | Description |
 | --- | --- |
-| **Reduced input lag** | Audio no longer throttles the emulator. Uses dynamic resampling (libsamplerate) to keep audio in sync without blocking the core. Controls feel noticeably more responsive on PS1, GBA, and SNES. |
-| **Cheat codes** | Per-game cheat support via `.cht` files (RetroArch / libretro-database format). Toggle cheats from the in-game Options menu; state persists across sessions. |
-| **Save & Quit** | New option in the in-game pause menu — saves your progress and returns to the launcher in one step, without losing your place. |
-| **Smart text overflow** | Long game names no longer overlap cover art, and long cheat names no longer cover the On/Off toggle. Unselected items truncate cleanly with `…`; the selected item scrolls horizontally so the full name is always readable. |
-| **Delete cheats in-game** | Press **Y** on any cheat in the Cheats menu to delete it from the `.cht` file. A confirmation dialog shows the full cheat name (wrapping across lines if needed) before removing it. Useful for cleaning up cheats that don't work without having to edit files on a PC. |
-| **Collections Manager** | On-device tool to create, rename, and delete game collections, and add or remove games from them — all without a PC. Launches from **Extras → Tools → Collections**. |
-| **Favorites** | Press **Y** on any game to favorite it (a centered `FAV+`/`FAV-` hint shows at the bottom). Favorited games appear in a dynamic **Favorites** list in the main menu, right below *Recently Played*. The list keeps add order, restores your place when you exit a game, and is pruned automatically on launch when games are removed from the SD card. |
-| **Screen overlays (bezel art)** | Optional per-console border/bezel art (e.g. a Game Boy shell around GB games, a CRT frame around consoles). Pick one from **Menu → Options → Overlay**. Stays visible — correctly positioned — behind the in-game pause menu, not just during gameplay. |
-| **PlayStation audio fixes** | PS1 crackling is gone, in cinematics and in gameplay. Two unrelated causes: frame pacing rounded to whole milliseconds, which ran cores ~4% fast and overflowed the audio buffer; and *Crisp* scaling costs an extra render pass (~3.5 ms a frame) that left demanding PS1 games short of time, starving audio. PS1 now defaults to *Sharp* — switch it back in **Menu → Options → Screen Sharpness** if a lighter game can afford it. The pacing fix applies to every console and every refresh rate, 50 Hz and 60 Hz alike. |
+| **Reduced input lag** | Controls that respond the instant you press a button. |
+| **PlayStation audio fixes** | Crackle-free PS1 sound in cutscenes and gameplay. |
+| **Cheat codes** | Infinite lives, max money and more, toggled right from the in-game menu. |
+| **Favorites** | Press **Y** to keep the games you love one tap away. |
+| **Screen overlays (bezel art)** | Frame your games in a Game Boy shell or a retro CRT TV. |
+| **Save & Quit** | Save and exit in one step, then pick up exactly where you left off. |
+| **Collections Manager** | Build and manage your own game collections right on the device. |
+| **Smart text overflow** | Long names scroll smoothly so you can always read the full title. |
 
 ## Download
 
