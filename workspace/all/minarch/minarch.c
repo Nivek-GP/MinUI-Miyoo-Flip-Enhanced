@@ -57,6 +57,7 @@ static int screen_scaling = SCALE_ASPECT;
 static int screen_sharpness = SHARPNESS_SOFT;
 static int screen_effect = EFFECT_NONE;
 static int screen_overlay = 0; // index into overlay_labels (0 = None)
+static int color_filter = 0; // index into color_filter_labels (0 = Off)
 static SDL_Rect overlay_vp = {0,0,0,0}; // last viewport pushed via GFX_setOverlay (0 area = none)
 // software copy of the active bezel PNG. The accelerated gameplay path draws
 // the overlay itself (PLAT_flip, texture-based); the paused in-game menu
@@ -752,6 +753,27 @@ static char* effect_labels[] = {
 // slots 1..OVERLAY_MAX hold strdup'd filename stems, then a NULL terminator.
 #define OVERLAY_MAX 24
 static char* overlay_labels[OVERLAY_MAX + 2] = { "None", NULL };
+static char* color_filter_labels[] = {
+	"Off",
+	"Desaturate 25%",
+	"Desaturate 50%",
+	"Desaturate 75%",
+	"GBA LCD",
+	"GBA LCD Dark",
+	"Grayscale",
+	"Sepia",
+	NULL
+};
+enum {
+	COLOR_OFF,
+	COLOR_DESAT_25,
+	COLOR_DESAT_50,
+	COLOR_DESAT_75,
+	COLOR_GBA_LCD,
+	COLOR_GBA_LCD_DARK,
+	COLOR_GRAYSCALE,
+	COLOR_SEPIA,
+};
 static char* sharpness_labels[] = {
 	"Sharp",
 	"Crisp",
@@ -788,6 +810,7 @@ enum {
 	FE_OPT_DEBUG,
 	FE_OPT_MAXFF,
 	FE_OPT_OVERLAY,
+	FE_OPT_COLOR,
 	FE_OPT_COUNT,
 };
 
@@ -1056,6 +1079,16 @@ static struct Config {
 				.values = overlay_labels,
 				.labels = overlay_labels,
 			},
+			[FE_OPT_COLOR] = {
+				.key	= "minarch_color_filter",
+				.name	= "Color Filter",
+				.desc	= "Recolors the image. GBA LCD mimics\nthe original GBA screen. Desaturate\nmutes modern-panel colors.",
+				.default_value = 0,
+				.value = 0,
+				.count = 8,
+				.values = color_filter_labels,
+				.labels = color_filter_labels,
+			},
 			[FE_OPT_COUNT] = {NULL}
 		}
 	},
@@ -1235,6 +1268,88 @@ static void Overlay_scan(void) {
 	if (n==0) ov->desc = "No overlays installed for this system.\nAdd .png + .cfg pairs under\n.system/res/overlays/ for this console.";
 }
 
+// color filter: every frame is RGB565, so a filter is a 65536-entry lookup table
+// (128 KB) rebuilt only when the option changes, then one table read per pixel
+static uint16_t color_lut[65536];
+static void* color_buffer = NULL;
+static size_t color_buffer_size = 0;
+static const void* last_raw_frame = NULL; // unfiltered source of the last frame, for redraws
+
+static float clamp01(float v) { return v<0 ? 0 : v>1 ? 1 : v; }
+static void ColorFilter_build(int filter) {
+	if (filter==COLOR_OFF) return;
+	for (int i=0; i<65536; i++) {
+		float r = ((i >> 11) & 0x1F) / 31.0f;
+		float g = ((i >>  5) & 0x3F) / 63.0f;
+		float b = ( i        & 0x1F) / 31.0f;
+		float nr = r, ng = g, nb = b;
+		switch (filter) {
+			case COLOR_DESAT_25:
+			case COLOR_DESAT_50:
+			case COLOR_DESAT_75: {
+				float k = filter==COLOR_DESAT_25 ? 0.25f : filter==COLOR_DESAT_50 ? 0.50f : 0.75f;
+				float grey = 0.299f*r + 0.587f*g + 0.114f*b;
+				// mixing a dark colour (navy, dark red) toward its grey lifts its zero
+				// channels into a grey haze, so fade the effect out in the shadows:
+				// none at black, full strength once the brightest channel reaches 60%
+				float t = clamp01(fmaxf(r, fmaxf(g, b)) / 0.6f);
+				k *= t * t * (3 - 2 * t);
+				nr = r + (grey - r) * k;
+				ng = g + (grey - g) * k;
+				nb = b + (grey - b) * k;
+				// muted colours read as lower contrast; deepen the shadows to match
+				float gamma = 1.0f + 0.3f * k;
+				nr = powf(clamp01(nr), gamma);
+				ng = powf(clamp01(ng), gamma);
+				nb = powf(clamp01(nb), gamma);
+				break;
+			}
+			case COLOR_GRAYSCALE:
+				nr = ng = nb = 0.299f*r + 0.587f*g + 0.114f*b;
+				break;
+			case COLOR_GBA_LCD:
+			case COLOR_GBA_LCD_DARK: {
+				// libretro slang-shaders handheld/shaders/color/gba-color.slang (Pokefan531),
+				// sRGB profile: linearize, mix channels, scale by lum 0.91, re-encode with
+				// final_gamma = darken_screen / 2.2^2 + 1 / 2.2 (darken_screen 0, or 1 for Dark)
+				float darken = filter==COLOR_GBA_LCD_DARK ? 1.0f : 0.0f;
+				float final_gamma = darken / (2.2f * 2.2f) + 1 / 2.2f;
+				float lr = powf(r, 2.2f), lg = powf(g, 2.2f), lb = powf(b, 2.2f);
+				nr = (0.905f*lr + 0.195f*lg - 0.100f*lb) * 0.91f;
+				ng = (0.100f*lr + 0.650f*lg + 0.250f*lb) * 0.91f;
+				nb = (0.1575f*lr + 0.1425f*lg + 0.700f*lb) * 0.91f;
+				nr = powf(clamp01(nr), final_gamma);
+				ng = powf(clamp01(ng), final_gamma);
+				nb = powf(clamp01(nb), final_gamma);
+				break;
+			}
+			case COLOR_SEPIA:
+				nr = 0.393f*r + 0.769f*g + 0.189f*b;
+				ng = 0.349f*r + 0.686f*g + 0.168f*b;
+				nb = 0.272f*r + 0.534f*g + 0.131f*b;
+				break;
+		}
+		int ir = (int)(clamp01(nr) * 31.0f + 0.5f);
+		int ig = (int)(clamp01(ng) * 63.0f + 0.5f);
+		int ib = (int)(clamp01(nb) * 31.0f + 0.5f);
+		color_lut[i] = (ir << 11) | (ig << 5) | ib;
+	}
+}
+static void ColorFilter_apply(const void* data, unsigned width, unsigned height, size_t pitch) {
+	size_t size = height * pitch;
+	if (size>color_buffer_size) {
+		free(color_buffer);
+		color_buffer = malloc(size);
+		color_buffer_size = color_buffer ? size : 0;
+	}
+	if (!color_buffer) return;
+	for (unsigned y=0; y<height; y++) {
+		const uint16_t* in = (const uint16_t*)((const uint8_t*)data + y * pitch);
+		uint16_t* out = (uint16_t*)((uint8_t*)color_buffer + y * pitch);
+		for (unsigned x=0; x<width; x++) out[x] = color_lut[in[x]];
+	}
+}
+
 static int toggle_thread = 0;
 static void Config_syncFrontend(char* key, int value) {
 	int i = -1;
@@ -1288,6 +1403,11 @@ static void Config_syncFrontend(char* key, int value) {
 		Overlay_apply();
 		renderer.dst_p = 0; // force scaler/effect rebuild so the grid re-sizes
 		i = FE_OPT_OVERLAY;
+	}
+	else if (exactMatch(key,config.frontend.options[FE_OPT_COLOR].key)) {
+		if (value!=color_filter) ColorFilter_build(value);
+		color_filter = value;
+		i = FE_OPT_COLOR;
 	}
 	if (i==-1) return;
 	Option* option = &config.frontend.options[i];
@@ -3082,33 +3202,39 @@ static void video_refresh_callback_main(const void *data, unsigned width, unsign
 		GFX_clearAll();
 	}
 	
-	// debug
+	last_raw_frame = data;
+	if (downsample) {
+		buffer_downsample(data,width,height,pitch*2);
+		data = buffer;
+	}
+	if (color_filter) {
+		ColorFilter_apply(data,width,height,pitch);
+		renderer.src = color_buffer ? color_buffer : (void*)data;
+	}
+	else {
+		renderer.src = (void*)data;
+	}
+
+	// debug (drawn after the filter so the text is not tinted)
 	if (show_debug) {
 		int x = 2 + renderer.src_x;
 		int y = 2 + renderer.src_y;
 		char debug_text[128];
 		int scale = renderer.scale;
 		if (scale==-1) scale = 1; // nearest neighbor flag
-		
+		uint16_t* dst = (uint16_t*)renderer.src;
+
 		sprintf(debug_text, "%ix%i %ix", renderer.src_w,renderer.src_h, scale);
-		blitBitmapText(debug_text,x,y,(uint16_t*)data,pitch/2, width,height);
+		blitBitmapText(debug_text,x,y,dst,pitch/2, width,height);
 
 		sprintf(debug_text, "%i,%i %ix%i", renderer.dst_x,renderer.dst_y, renderer.src_w*scale,renderer.src_h*scale);
-		blitBitmapText(debug_text,-x,y,(uint16_t*)data,pitch/2, width,height);
-	
+		blitBitmapText(debug_text,-x,y,dst,pitch/2, width,height);
+
 		sprintf(debug_text, "%.01f/%.01f %i%%", fps_double, cpu_double, (int)use_double);
-		blitBitmapText(debug_text,x,-y,(uint16_t*)data,pitch/2, width,height);
-	
+		blitBitmapText(debug_text,x,-y,dst,pitch/2, width,height);
+
 		sprintf(debug_text, "%ix%i", renderer.dst_w,renderer.dst_h);
-		blitBitmapText(debug_text,-x,-y,(uint16_t*)data,pitch/2, width,height);
-	}
-	
-	if (downsample) {
-		buffer_downsample(data,width,height,pitch*2);
-		renderer.src = buffer;
-	}
-	else {
-		renderer.src = (void*)data;
+		blitBitmapText(debug_text,-x,-y,dst,pitch/2, width,height);
 	}
 	renderer.dst = screen->pixels;
 	// LOG_info("video_refresh_callback: %ix%i@%i %ix%i@%i\n",width,height,pitch,screen->w,screen->h,screen->pitch);
@@ -3144,7 +3270,7 @@ static void video_refresh_callback(const void *data, unsigned width, unsigned he
 			backbuffer = SDL_CreateRGBSurfaceFrom(pixels, width, height, FIXED_DEPTH, pitch, RGBA_MASK_565);
 		}
 		
-		memcpy(backbuffer->pixels, data, backbuffer->h*backbuffer->pitch);
+		if (data!=backbuffer->pixels) memcpy(backbuffer->pixels, data, backbuffer->h*backbuffer->pitch);
 		
 		pthread_cond_signal(&core_rq);
 		pthread_mutex_unlock(&core_mx);
@@ -5099,7 +5225,8 @@ static void Menu_loop(void) {
 		}
 		GFX_setEffect(screen_effect);
 		GFX_clear(screen);
-		video_refresh_callback(renderer.src, renderer.true_w, renderer.true_h, renderer.src_p);
+		// redraw from the unfiltered frame so the color filter is applied once
+		video_refresh_callback(last_raw_frame ? last_raw_frame : renderer.src, renderer.true_w, renderer.true_h, renderer.src_p);
 		
 		setOverclock(overclock); // restore overclock value
 		if (rumble_strength) VIB_setStrength(rumble_strength);
